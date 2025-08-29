@@ -1,0 +1,2998 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twinkle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script>
+        // Custom Tailwind theme configuration for our purple color
+        tailwind.config = {
+            darkMode: 'class', // Enable dark mode using a class
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6a0dad',
+                        ludo: { // Kept for other UI elements if needed, but not used by ludo game
+                            red: '#ef4444',
+                            green: '#22c55e',
+                            yellow: '#f59e0b',
+                            blue: '#3b82f6',
+                        }
+                    },
+                    keyframes: {
+                        'fade-in-up': {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        'fade-in': {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        'scale-in': {
+                            '0%': { opacity: '0', transform: 'scale(0.95)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' },
+                        },
+                        'spin': {
+                            'to': { transform: 'rotate(360deg)' },
+                        },
+                        'blink': {
+                            '50%': { opacity: '0.2' },
+                        },
+                        'flap': {
+                            '0%, 100%': { transform: 'translateY(0) rotate(0)' },
+                            '50%': { transform: 'translateY(-10px) rotate(-10deg)' }
+                        },
+                        'fall-and-catch': {
+                            '0%, 100%': { transform: 'translateY(-20px) rotate(0)' },
+                            '40%': { transform: 'translateY(20px) rotate(10deg)' },
+                            '50%': { transform: 'translateY(25px) rotate(-5deg)', opacity: 1 },
+                            '60%': { transform: 'translateY(25px) scale(0)', opacity: 0 },
+                        },
+                        'move-road-lines': {
+                            '0%': { transform: 'translateY(-100%)' },
+                            '100%': { transform: 'translateY(100%)' },
+                        },
+                        'wobble-car': {
+                            '0%, 100%': { transform: 'translateX(-50%) rotate(-2deg)' },
+                            '50%': { transform: 'translateX(-50%) rotate(2deg)' }
+                        },
+                        'draw-x': {
+                            '0%, 49%': { transform: 'scale(0)', opacity: '0' },
+                            '50%, 100%': { transform: 'scale(1)', opacity: '1' }
+                        },
+                        'draw-o': {
+                            '0%, 99%': { transform: 'scale(0)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        },
+                    },
+                    animation: {
+                        'fade-in-up': 'fade-in-up 0.3s ease-out',
+                        'fade-in': 'fade-in 0.3s ease-out',
+                        'scale-in': 'scale-in 0.1s ease-out',
+                        'spin': 'spin 1s linear infinite',
+                        'blink': 'blink 1.4s infinite both',
+                        'flap': 'flap 0.5s ease-in-out infinite',
+                        'fall-and-catch': 'fall-and-catch 2s ease-in-out infinite',
+                        'move-road-lines': 'move-road-lines 1s linear infinite',
+                        'wobble-car': 'wobble-car 0.3s linear infinite',
+                        'draw-x': 'draw-x 2s ease-in-out infinite',
+                        'draw-o': 'draw-o 2s ease-in-out infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* --- NEW UI IMPROVEMENT STYLES --- */
+        .text-gradient {
+            background: linear-gradient(to right, #3b82f6, #8b5cf6, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
+        }
+        .bg-gradient-custom {
+            background-image: linear-gradient(to right, #3b82f6, #8b5cf6, #f59e0b);
+        }
+        .border-gradient-custom {
+            border-image-slice: 1;
+            border-image-source: linear-gradient(to right, #3b82f6, #8b5cf6, #f59e0b);
+        }
+        .logo-text span.large {
+            font-size: 1.25em; /* Makes 'T' bigger */
+            vertical-align: baseline;
+        }
+
+        /* Simple scrollbar styling for a cleaner look */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        .dark ::-webkit-scrollbar-track { background: #2d3748; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 5px;}
+        .dark ::-webkit-scrollbar-thumb { background: #4a5568; }
+        ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+        .hidden { display: none; }
+        .message-bubble-wrapper:hover .action-btn {
+            opacity: 1;
+        }
+        .dark .dark-text-glow {
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+        }
+        /* Rich Link Preview Styles */
+        .link-preview {
+            border-left: 3px solid #6a0dad;
+        }
+        .link-preview-image {
+            width: 64px;
+            height: 64px;
+            object-fit: cover;
+        }
+        /* Game Styles */
+        #flappy-bird-canvas, #fruit-catcher-canvas {
+            display: block;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        #flappy-bird-canvas {
+             background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 100%);
+        }
+        #fruit-catcher-canvas {
+            background: linear-gradient(to bottom, #87CEEB 0%, #c1e1e6 100%);
+        }
+        .game-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .pixel-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        /* --- Retro Racer Thumbnail Styles --- */
+        .thumbnail-road {
+            background-color: #2d2d2d;
+            position: relative;
+        }
+        .thumbnail-line {
+            position: absolute;
+            width: 6px;
+            height: 25px;
+            background-color: #ccc;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .thumbnail-car {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            width: 35px;
+            height: 45px;
+            background-color: #f1c40f;
+            border-radius: 4px;
+        }
+        .thumbnail-car::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: 0;
+            width: 100%;
+            height: 10px;
+            background: #222;
+            border-radius: 4px 4px 0 0;
+        }
+
+        /* --- Retro Racer Game Styles --- */
+        #retro-racer-page .game-container {
+            position: relative; width: 100%; height: 100%;
+            background: #2d2d2d; overflow: hidden;
+            border-left: 10px solid #444; border-right: 10px solid #444;
+        }
+        #retro-racer-page .score, #retro-racer-page .high-score {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7); color: #fff; padding: 10px 15px;
+            border-radius: 8px; font-size: 16px; z-index: 10;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3); width: 80%; text-align: center;
+            font-family: 'Press Start 2P', cursive;
+        }
+        #retro-racer-page .high-score { top: 70px; }
+        #retro-racer-page .line {
+            position: absolute; width: 10px; height: 60px;
+            background: #ccc; left: 50%; transform: translateX(-50%); z-index: 1;
+        }
+        @keyframes vehicle-wobble { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg); } }
+        #retro-racer-page .car, #retro-racer-page .enemy {
+            position: absolute; width: 50px; height: 80px;
+            background-size: cover; background-position: center; background-repeat: no-repeat;
+            animation: vehicle-wobble 0.3s linear infinite; z-index: 5;
+        }
+        #retro-racer-page .car::after, #retro-racer-page .enemy::after {
+            content: ''; position: absolute; bottom: -10px; left: 50%;
+            transform: translateX(-50%); width: 90%; height: 10px;
+            background: rgba(0,0,0,0.3); border-radius: 50%; z-index: -2;
+        }
+        #retro-racer-page .car {
+            bottom: 100px; left: 50%; transform: translateX(-50%);
+            background-color: #f1c40f; box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            height: 60px; border-radius: 5px;
+        }
+        #retro-racer-page .car .roof {
+            position: absolute; top: -20px; left: 0; width: 100%; height: 20px;
+            background: #222; border-radius: 8px 8px 0 0;
+        }
+        #retro-racer-page .car .windshield {
+            position: absolute; top: 5px; left: 5px; width: 40px; height: 15px;
+            background: #a2d5f2; border: 2px solid #222;
+        }
+        #retro-racer-page .car .headlight {
+            position: absolute; top: 5px; width: 8px; height: 8px;
+            background: #fff; border-radius: 50%; box-shadow: 0 0 5px #fff, 0 0 10px #ff0;
+        }
+        #retro-racer-page .car .headlight.left { left: 5px; }
+        #retro-racer-page .car .headlight.right { right: 5px; }
+        #retro-racer-page .enemy { border-radius: 8px 8px 3px 3px; box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+        #retro-racer-page .enemy .cabin {
+            content: ''; position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
+            width: 80%; height: 60%; background: rgba(0,0,0,0.2);
+            border-radius: 5px 5px 0 0; border: 2px solid rgba(255,255,255,0.1);
+        }
+        #retro-racer-page .enemy .windshield {
+            content: ''; position: absolute; top: 15%; left: 50%; transform: translateX(-50%);
+            width: 60%; height: 20%; background: #a2d5f2;
+        }
+        #retro-racer-page .enemy .taillight {
+            position: absolute; bottom: 5px; width: 8px; height: 10px;
+            background: #ff4757; border-radius: 2px; box-shadow: 0 0 5px #ff4757;
+        }
+        #retro-racer-page .enemy .taillight.left { left: 5px; }
+        #retro-racer-page .enemy .taillight.right { right: 5px; }
+        #retro-racer-page .enemy-sedan { height: 75px; }
+        #retro-racer-page .enemy-suv { height: 90px; width: 55px; }
+        #retro-racer-page .enemy-suv .cabin { height: 70%; }
+        #retro-racer-page .wheel {
+            position: absolute; background: #2c3e50; border: 2px solid #34495e;
+            border-radius: 3px; z-index: -1;
+        }
+        #retro-racer-page .car .wheel { width: 12px; height: 20px; }
+        #retro-racer-page .enemy .wheel { width: 10px; height: 18px; }
+        #retro-racer-page .wheel.front-left { top: 10%; left: -8px; }
+        #retro-racer-page .wheel.front-right { top: 10%; right: -8px; }
+        #retro-racer-page .wheel.back-left { bottom: 10%; left: -8px; }
+        #retro-racer-page .wheel.back-right { bottom: 10%; right: -8px; }
+        #retro-racer-page .car .wheel.front-center { top: 5%; left: 50%; transform: translateX(-50%); }
+        #retro-racer-page .start-screen, #retro-racer-page .game-over-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0, 0, 0, 0.85); color: #fff; text-align: center; z-index: 20; padding: 20px;
+            font-family: 'Press Start 2P', cursive;
+        }
+        #retro-racer-page .start-screen { cursor: pointer; }
+        #retro-racer-page .start-screen h1, #retro-racer-page .game-over-screen h1 {
+            font-size: 24px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;
+        }
+        #retro-racer-page .start-screen p, #retro-racer-page .game-over-screen p { font-size: 14px; line-height: 1.6; }
+        #retro-racer-page .game-over-screen .final-score { font-size: 18px; margin: 20px 0; color: #ffdd00; }
+        #retro-racer-page #restart-btn {
+            padding: 15px 30px; font-size: 18px; background: #ff4500; color: white;
+            border: none; border-radius: 8px; cursor: pointer; margin-top: 20px;
+            text-transform: uppercase; box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: background-color 0.3s ease;
+        }
+        #retro-racer-page #restart-btn:hover { background: #e03e00; }
+        #retro-racer-page .hide { display: none; }
+        #retro-racer-page .level-up-popup {
+            position: absolute; top: -100px; left: 50%; transform: translateX(-50%);
+            background: #ffdd00; color: #222; padding: 10px 20px; border-radius: 8px;
+            font-size: 18px; z-index: 30; transition: top 0.5s ease-in-out;
+        }
+        #retro-racer-page .mobile-controls {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 80%; display: none; justify-content: space-between; z-index: 15;
+        }
+        #retro-racer-page .mobile-controls button {
+            width: 100px; height: 100px; background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.5); color: white;
+            font-size: 48px; border-radius: 50%; -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- Tic-Tac-Toe Styles --- */
+        #tictactoe-page .ttt-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 300px;
+            margin: 20px auto;
+        }
+        #tictactoe-page .ttt-cell {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: #16213e;
+            font-size: 3rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 0.5rem;
+            color: white;
+        }
+        #tictactoe-page .ttt-cell.x { color: #34d399; }
+        #tictactoe-page .ttt-cell.o { color: #fbbf24; }
+        #tictactoe-page .lobby-btn {
+            font-family: 'Press Start 2P', cursive;
+        }
+        .rewrite-suggestion {
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        .rewrite-suggestion:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Message Actions Menu */
+        .message-actions-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: -10px;
+            z-index: 10;
+        }
+        .message-bubble-wrapper:hover .message-actions-menu {
+            display: block;
+        }
+        .unsend-btn {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .unsend-btn:hover {
+            background-color: #dc2626; /* red-600 */
+        }
+
+        /* Emoji Reactions */
+        .reaction-chip {
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background-color: #e5e7eb; /* gray-200 */
+            transition: background-color 0.2s;
+        }
+        .dark .reaction-chip {
+            background-color: #4b5563; /* gray-600 */
+        }
+        .reaction-chip.reacted-by-me {
+            background-color: #60a5fa; /* blue-400 */
+            color: white;
+        }
+        .dark .reaction-chip.reacted-by-me {
+            background-color: #3b82f6; /* blue-500 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 font-sans antialiased">
+
+    <div id="loading-screen" class="flex items-center justify-center min-h-screen">
+        <div class="w-16 h-16 border-4 border-t-primary border-gray-200 rounded-full animate-spin"></div>
+    </div>
+
+    <div id="auth-page" class="hidden flex items-center justify-center min-h-screen p-4">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
+            <div id="login-view">
+                <h2 class="text-3xl font-bold text-center text-gray-800">Welcome Back!</h2>
+                <p class="text-center text-gray-500">Login to continue to Twinkle</p>
+                <div class="mt-8 space-y-4">
+                    <button id="google-signin-btn" class="w-full flex items-center justify-center py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
+                        <svg class="w-5 h-5 mr-2" viewBox="0 0 48 48"><path fill="#4285F4" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path><path fill="#34A853" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"></path><path fill="#FBBC05" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"></path><path fill="#EA4335" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 39.233 44 34.026 44 24c0-1.341-.138-2.65-.389-3.917z"></path></svg>
+                        Sign in with Google
+                    </button>
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-300"></div></div>
+                        <div class="relative flex justify-center text-sm"><span class="px-2 bg-white text-gray-500">Or continue with</span></div>
+                    </div>
+                </div>
+                <form id="login-form" class="mt-4 space-y-6">
+                    <input type="email" id="login-email" placeholder="Email Address" required class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition">
+                    <input type="password" id="login-password" placeholder="Password" required class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition">
+                    <button type="submit" class="w-full py-3 text-white bg-gradient-custom rounded-md hover:opacity-90 transition-opacity font-bold active:scale-95">Login</button>
+                </form>
+                <p class="mt-6 text-sm text-center">Don't have an account? <a href="#" id="show-signup" class="font-medium text-primary hover:underline">Sign up</a></p>
+            </div>
+            <div id="signup-view" class="hidden">
+                <h2 class="text-3xl font-bold text-center text-gray-800">Create Account</h2>
+                <p class="text-center text-gray-500">Get started with Twinkle</p>
+                <div class="mt-8 space-y-4">
+                    <button id="google-signup-btn" class="w-full flex items-center justify-center py-3 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
+                        <svg class="w-5 h-5 mr-2" viewBox="0 0 48 48"><path fill="#4285F4" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path><path fill="#34A853" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"></path><path fill="#FBBC05" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"></path><path fill="#EA4335" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 39.233 44 34.026 44 24c0-1.341-.138-2.65-.389-3.917z"></path></svg>
+                        Sign up with Google
+                    </button>
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-300"></div></div>
+                        <div class="relative flex justify-center text-sm"><span class="px-2 bg-white text-gray-500">Or continue with</span></div>
+                    </div>
+                </div>
+                <form id="signup-form" class="mt-4 space-y-6">
+                    <input type="text" id="signup-username" placeholder="Username (must be unique)" required class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition">
+                    <input type="email" id="signup-email" placeholder="Email Address" required class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition">
+                    <input type="password" id="signup-password" placeholder="Password (min. 6 characters)" required class="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition">
+                    <button type="submit" class="w-full py-3 text-white bg-gradient-custom rounded-md hover:opacity-90 transition-opacity font-bold active:scale-95">Sign Up</button>
+                </form>
+                <p class="mt-6 text-sm text-center">Already have an account? <a href="#" id="show-login" class="font-medium text-primary hover:underline">Login</a></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden h-screen w-screen flex flex-col bg-gray-100 dark:bg-gray-900 border-8 border-white dark:border-gray-900">
+        <header class="bg-white dark:bg-gray-800 shadow-md p-2 flex justify-start items-center z-10 flex-shrink-0">
+             <h1 class="text-xl font-bold logo-text text-gradient ml-2">
+                <span class="large">T</span>winkle
+            </h1>
+            <button id="open-gemini-btn" class="ml-auto p-2 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-white transition-colors">
+                <img src="https://static.vecteezy.com/system/resources/previews/055/687/055/non_2x/rectangle-gemini-google-icon-symbol-logo-free-png.png"  width="27" height="27">
+        </header>
+
+        <main class="flex-1 overflow-y-auto pb-20">
+            <div id="chats-page" class="page p-4 relative h-full">
+                <input type="search" id="search-input" placeholder="Search existing chats..." class="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                <div id="chat-list" class="space-y-3">
+                    </div>
+            </div>
+            <div id="profile-page" class="page hidden p-4 animate-fade-in">
+                <div class="max-w-md mx-auto space-y-4">
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md text-center">
+                        <div id="profile-pic-container" class="relative w-24 h-24 mx-auto mb-4 cursor-pointer group">
+                            <img id="profile-pic-display" class="w-24 h-24 rounded-full object-cover ring-4 ring-primary ring-opacity-50" src="https://placehold.co/100x100/6a0dad/white?text=A" alt="Profile Picture">
+                            <div class="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span class="text-white text-xs font-bold">Change</span>
+                            </div>
+                        </div>
+                        <input type="file" id="profile-pic-input" class="hidden" accept="image/*">
+                        <h3 id="profile-username" class="text-2xl font-bold text-gray-900 dark:text-white">Username</h3>
+                        <p id="profile-email" class="text-gray-500 dark:text-gray-400">email@example.com</p>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md text-left">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-bold text-gray-800 dark:text-gray-200">Bio</h4>
+                            <button id="edit-bio-btn" class="text-sm text-primary font-semibold">Edit</button>
+                        </div>
+                        <p id="bio-text" class="text-gray-600 dark:text-gray-300 text-sm">This is your bio. Click edit to change it.</p>
+                        <textarea id="bio-input" class="hidden w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-200" rows="3"></textarea>
+                        <button id="save-bio-btn" class="hidden mt-2 w-full py-2 text-sm text-white bg-primary rounded-md hover:bg-purple-800 transition active:scale-95">Save</button>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                        <div class="flex justify-between items-center">
+                            <h4 class="font-bold text-gray-800 dark:text-gray-200">Dark Theme</h4>
+                            <button id="theme-toggle" class="relative inline-flex items-center h-6 rounded-full w-11 transition-colors bg-gray-200 dark:bg-gray-600">
+                                <span id="theme-toggle-slider" class="inline-block w-4 h-4 transform bg-white rounded-full transition-transform translate-x-1 dark:translate-x-6"></span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button id="logout-button" class="w-full py-2 text-white bg-red-500 rounded-md hover:bg-red-600 transition active:scale-95">Logout</button>
+                </div>
+            </div>
+            
+            <div id="game-zone-page" class="page hidden p-4 animate-fade-in">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 text-center">Game Zone</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div id="flappy-bird-card" class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md text-center cursor-pointer">
+                        <div class="w-full h-24 bg-sky-200 dark:bg-sky-800 rounded-md mb-2 flex items-center justify-center overflow-hidden relative">
+                           <div class="w-8 h-6 bg-yellow-400 rounded-full animate-flap absolute" style="left: 20%;"></div>
+                        </div>
+                        <h3 class="font-bold text-gray-800 dark:text-gray-200">Flappy Bird</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Click to Play</p>
+                    </div>
+                    <div id="fruit-catcher-card" class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md text-center cursor-pointer">
+                        <div class="w-full h-24 bg-green-200 dark:bg-green-800 rounded-md mb-2 flex items-center justify-center overflow-hidden relative">
+                            <div class="text-4xl absolute bottom-1">🧺</div>
+                            <div class="text-2xl absolute animate-fall-and-catch">🍎</div>
+                        </div>
+                        <h3 class="font-bold text-gray-800 dark:text-gray-200">Fruit Catcher</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Click to Play</p>
+                    </div>
+                    <div id="retro-racer-card" class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md text-center cursor-pointer">
+                        <div class="w-full h-24 bg-gray-300 dark:bg-gray-600 rounded-md mb-2 flex items-center justify-center overflow-hidden relative thumbnail-road">
+                            <div class="thumbnail-line animate-move-road-lines" style="top: -50%;"></div>
+                            <div class="thumbnail-line animate-move-road-lines" style="top: 0;"></div>
+                            <div class="thumbnail-line animate-move-road-lines" style="top: 50%;"></div>
+                            <div class="thumbnail-car animate-wobble-car"></div>
+                        </div>
+                        <h3 class="font-bold text-gray-800 dark:text-gray-200">Retro Racer</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Click to Play</p>
+                    </div>
+                    <div id="tictactoe-card" class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md text-center cursor-pointer">
+                        <div class="w-full h-24 bg-purple-200 dark:bg-purple-900 rounded-md mb-2 flex items-center justify-center overflow-hidden relative">
+                            <div class="grid grid-cols-3 gap-1 w-20 h-20">
+                                <div class="bg-purple-300 dark:bg-purple-800 rounded-sm"></div>
+                                <div class="bg-purple-300 dark:bg-purple-800 rounded-sm flex items-center justify-center text-4xl font-bold text-green-500 animate-draw-x">X</div>
+                                <div class="bg-purple-300 dark:bg-purple-800 rounded-sm"></div>
+                                <div class="bg-purple-300 dark:bg-purple-800 rounded-sm"></div>
+                                <div class="bg-purple-300 dark:bg-purple-800 rounded-sm"></div>
+                                <div class="bg-purple-300 dark:bg-purple-800 rounded-sm flex items-center justify-center text-4xl font-bold text-amber-400 animate-draw-o" style="animation-delay: 1s;">O</div>
+                                <div class="bg-purple-300 dark:bg-purple-800 rounded-sm"></div>
+                                <div class="bg-purple-300 dark:bg-purple-800 rounded-sm"></div>
+                                <div class="bg-purple-300 dark:bg-purple-800 rounded-sm"></div>
+                            </div>
+                        </div>
+                        <h3 class="font-bold text-gray-800 dark:text-gray-200">Tic-Tac-Toe</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Click to Play</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chat-room-page" class="page hidden fixed inset-0 flex flex-col bg-gray-100 dark:bg-gray-900 z-20">
+                <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex items-center space-x-3 flex-shrink-0">
+                    <button id="back-to-chats-btn" class="text-primary dark:text-white p-2 text-sm">
+                        Back
+                    </button>
+                    <div id="chat-room-header-clickable" class="flex items-center space-x-3 cursor-pointer flex-1">
+                        <div class="relative w-10 h-10">
+                            <img id="chat-room-pic" class="w-10 h-10 rounded-full object-cover" src="https://placehold.co/100x100/6a0dad/white?text=P" alt="Partner">
+                            <div id="chat-room-status-dot" class="w-3 h-3 rounded-full absolute bottom-0 right-0 border-2 border-white"></div>
+                        </div>
+                        <div>
+                            <h2 id="chat-room-username" class="font-bold text-gray-900 dark:text-white dark-text-glow">Chat Partner</h2>
+                            <p id="chat-room-status-text" class="text-xs text-gray-500">Offline</p>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <button id="chat-settings-btn" class="p-2 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-white">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>
+                        </button>
+                        <div id="chat-settings-menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg z-10">
+                            <a href="#" id="delete-chat-btn" class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600">Delete Chat</a>
+                        </div>
+                    </div>
+                </header>
+                <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-2">
+                    <div id="emoji-reaction-picker" class="hidden absolute z-20 flex items-center gap-2 p-1.5 bg-white dark:bg-gray-700 rounded-full shadow-lg transition-transform duration-150 ease-out">
+                        <button class="reaction-emoji text-2xl hover:scale-125 transition-transform">👍</button>
+                        <button class="reaction-emoji text-2xl hover:scale-125 transition-transform">❤️</button>
+                        <button class="reaction-emoji text-2xl hover:scale-125 transition-transform">😂</button>
+                        <button class="reaction-emoji text-2xl hover:scale-125 transition-transform">😮</button>
+                        <button class="reaction-emoji text-2xl hover:scale-125 transition-transform">😢</button>
+                        <button class="reaction-emoji text-2xl hover:scale-125 transition-transform">🙏</button>
+                    </div>
+                </div>
+                <footer class="p-4 bg-white dark:bg-gray-800 border-t dark:border-gray-700">
+                    <div id="typing-indicator-container" class="h-12"></div>
+                    <div id="ai-rewrite-popup" class="hidden mb-2 p-4 bg-white dark:bg-gray-700 rounded-lg shadow-lg animate-fade-in-up">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="text-sm font-bold flex items-center"><span class="mr-2 text-lg">✨</span> Gemini</h4>
+                            <button id="close-rewrite-popup-btn" class="text-gray-500 dark:text-gray-400">&times;</button>
+                        </div>
+                        <div id="rewrite-suggestions" class="space-y-2 text-sm">
+                            </div>
+                    </div>
+                    <div id="reply-preview-container" class="hidden p-2 mb-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p id="reply-preview-username" class="text-sm font-bold text-sky-500"></p>
+                                <p id="reply-preview-text" class="text-xs text-gray-600 dark:text-gray-300 truncate"></p>
+                            </div>
+                            <button id="cancel-reply-btn" class="text-gray-500 dark:text-gray-400">&times;</button>
+                        </div>
+                    </div>
+                    <button id="ai-rewrite-btn" class="hidden w-full mb-2 flex items-center justify-center gap-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        😊 AI Rewrite
+                    </button>
+                    <form id="message-form" class="flex items-center">
+                        <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary">
+                        <button type="submit" class="ml-3 p-3 bg-gradient-custom text-white rounded-full hover:opacity-90 transition-opacity active:scale-95">Send</button>
+                    </form>
+                </footer>
+            </div>
+            
+            <div id="search-users-page" class="page hidden fixed inset-0 flex flex-col bg-gray-100 dark:bg-gray-900 z-20">
+                <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex items-center space-x-3 flex-shrink-0">
+                    <button id="back-from-search-btn" class="text-primary dark:text-white p-2 text-sm">Back</button>
+                    <input type="search" id="user-search-input" placeholder="Search for users by username..." class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                </header>
+                <div id="user-search-results" class="flex-1 overflow-y-auto p-4 space-y-3">
+                    </div>
+            </div>
+
+            <div id="partner-profile-page" class="page hidden fixed inset-0 flex flex-col bg-gray-100 dark:bg-gray-900 z-30 animate-fade-in">
+                <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex items-center space-x-3 flex-shrink-0">
+                    <button id="back-from-partner-profile-btn" class="text-primary dark:text-white p-2 text-sm">Back</button>
+                    <h2 class="font-bold text-gray-900 dark:text-white">Profile</h2>
+                </header>
+                <div class="flex-1 overflow-y-auto p-4">
+                     <div class="max-w-md mx-auto space-y-4">
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md text-center">
+                            <img id="partner-profile-pic" class="w-24 h-24 rounded-full object-cover ring-4 ring-primary ring-opacity-50 mx-auto mb-4" src="https://placehold.co/100x100/6a0dad/white?text=A" alt="Partner Profile Picture">
+                            <h3 id="partner-profile-username" class="text-2xl font-bold text-gray-900 dark:text-white">Username</h3>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md text-left">
+                            <h4 class="font-bold text-gray-800 dark:text-gray-200 mb-2">Bio</h4>
+                            <p id="partner-profile-bio" class="text-gray-600 dark:text-gray-300 text-sm">No bio available.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="gemini-page" class="page hidden fixed inset-0 flex flex-col bg-gray-100 dark:bg-gray-900 z-20">
+                <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex items-center space-x-3 flex-shrink-0">
+                    <button id="back-from-gemini-btn" class="text-primary dark:text-white p-2 text-sm">
+                        Back
+                    </button>
+                    <h2 class="font-bold text-gray-900 dark:text-white flex items-center">
+    <img src="https://static.vecteezy.com/system/resources/previews/055/687/055/non_2x/rectangle-gemini-google-icon-symbol-logo-free-png.png" width="25" height="25"> &nbsp;  Gemini
+                    </h2>
+                </header>
+                <div id="gemini-messages-container" class="flex-1 overflow-y-auto p-4 space-y-4">
+                    </div>
+                <footer class="p-4 bg-white dark:bg-gray-800 border-t dark:border-gray-700">
+                    <div id="gemini-typing-indicator" class="h-6 mb-2"></div>
+                    <form id="gemini-message-form" class="flex items-center">
+                        <input type="text" id="gemini-message-input" placeholder="Type a message to Gemini..." autocomplete="off" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary">
+                        <button type="submit" class="ml-3 p-3 bg-gradient-custom text-white rounded-full hover:opacity-90 transition-opacity active:scale-95">Send</button>
+                    </form>
+                </footer>
+            </div>
+
+            <div id="flappy-bird-page" class="page hidden fixed inset-0 flex flex-col bg-gray-800 z-30 animate-fade-in p-4">
+                <header class="flex-shrink-0 mb-4">
+                    <button id="back-from-flappy-bird-btn" class="text-white p-2 text-sm">Back to Games</button>
+                </header>
+                <div class="flex-1 flex items-center justify-center">
+                    <div class="relative w-full max-w-lg mx-auto">
+                        <canvas id="flappy-bird-canvas"></canvas>
+                        <div id="flappy-bird-overlay" class="absolute inset-0 m-0 flex items-center justify-center rounded-lg game-overlay">
+                            <div id="flappy-bird-start-screen" class="text-center text-white pixel-font">
+                                <h1 class="text-4xl md:text-5xl font-bold mb-4">Flappy Bird</h1>
+                                <p class="text-lg mb-8">Click, Tap, or Press Space to Flap</p>
+                                <button id="flappy-bird-start-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-transform transform hover:scale-105">
+                                    Start Game
+                                </button>
+                            </div>
+                            <div id="flappy-bird-game-over-screen" class="text-center text-white hidden pixel-font">
+                                <h2 class="text-4xl md:text-5xl font-bold mb-2">Game Over</h2>
+                                <p class="text-2xl mb-4">Score: <span id="flappy-bird-final-score">0</span></p>
+                                <p class="text-xl mb-8">High Score: <span id="flappy-bird-high-score">0</span></p>
+                                <button id="flappy-bird-restart-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-transform transform hover:scale-105">
+                                    Restart
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="fruit-catcher-page" class="page hidden fixed inset-0 flex flex-col bg-gray-800 z-30 animate-fade-in p-4">
+                <header class="flex-shrink-0 mb-4">
+                    <button id="back-from-fruit-catcher-btn" class="text-white p-2 text-sm">Back to Games</button>
+                </header>
+                <div class="flex-1 flex items-center justify-center">
+                    <div class="relative w-full max-w-lg mx-auto">
+                        <canvas id="fruit-catcher-canvas"></canvas>
+                        <div id="fruit-catcher-overlay" class="absolute inset-0 m-0 flex items-center justify-center rounded-lg game-overlay">
+                            <div id="fruit-catcher-start-screen" class="text-center text-white pixel-font">
+                                <h1 class="text-4xl md:text-5xl font-bold mb-4">Fruit Catcher</h1>
+                                <p class="text-lg mb-8">Move mouse or finger to catch fruit!</p>
+                                <button id="fruit-catcher-start-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-transform transform hover:scale-105">
+                                    Start Game
+                                </button>
+                            </div>
+                            <div id="fruit-catcher-game-over-screen" class="text-center text-white hidden pixel-font">
+                                <h2 class="text-4xl md:text-5xl font-bold mb-2">Game Over</h2>
+                                <p class="text-2xl mb-4">Score: <span id="fruit-catcher-final-score">0</span></p>
+                                <p class="text-xl mb-8">High Score: <span id="fruit-catcher-high-score">0</span></p>
+                                <button id="fruit-catcher-restart-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-transform transform hover:scale-105">
+                                    Restart
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="retro-racer-page" class="page hidden fixed inset-0 flex flex-col bg-gray-800 z-30 animate-fade-in">
+                <header class="flex-shrink-0 p-4 flex items-center justify-start w-full max-w-lg mx-auto">
+                    <button id="back-from-retro-racer-btn" class="text-white p-2 text-sm">Back to Games</button>
+                </header>
+                <div class="flex-1 flex items-center justify-center">
+                    <div class="relative w-full max-w-lg h-full mx-auto">
+                        <div class="game-container">
+                            <div class="start-screen">
+                                <h1>Retro Racer</h1>
+                                <p>Use Arrow/WASD Keys or On-Screen Buttons</p>
+                                <p>Avoid the other cars!</p>
+                                <p style="margin-top: 30px;">Click to Start</p>
+                            </div>
+                            <div class="game-over-screen hide">
+                                <h1>Game Over</h1>
+                                <p class="final-score">Your Score: 0</p>
+                                <button id="restart-btn">Restart</button>
+                            </div>
+                            <div class="score">Score: 0</div>
+                            <div class="high-score">High Score: 0</div>
+                            <div class="mobile-controls">
+                                <button id="move-left">◀</button>
+                                <button id="move-right">▶</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+             <div id="tictactoe-page" class="page hidden fixed inset-0 flex flex-col bg-gray-800 z-30 animate-fade-in p-4">
+                <header class="flex-shrink-0 mb-4">
+                    <button id="back-from-tictactoe-btn" class="text-white p-2 text-sm">Back to Games</button>
+                </header>
+                <div class="flex-1 flex items-center justify-center">
+                    <div class="w-full max-w-md mx-auto text-center text-white">
+                        <div id="tictactoe-lobby">
+                             <h1 class="text-4xl md:text-5xl font-bold mb-8 pixel-font">Tic-Tac-Toe</h1>
+                             <div class="space-y-4">
+                                <button id="ttt-play-bot-btn" class="lobby-btn w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-lg text-xl shadow-lg transition-transform transform hover:scale-105">Play with Bot</button>
+                                <button id="ttt-create-room-btn" class="lobby-btn w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-xl shadow-lg transition-transform transform hover:scale-105">Create Room</button>
+                                <div class="bg-gray-700 p-4 rounded-lg">
+                                    <input id="ttt-room-id-input" type="text" placeholder="Enter Room ID" class="w-full px-4 py-3 border-2 border-gray-500 bg-gray-800 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-primary transition text-center pixel-font text-sm">
+                                    <button id="ttt-join-room-btn" class="lobby-btn w-full mt-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-lg transition-transform transform hover:scale-105">Join Room</button>
+                                </div>
+                             </div>
+                        </div>
+                        <div id="tictactoe-game-area" class="hidden">
+                            <div id="ttt-status" class="pixel-font text-xl mb-4 h-12">Waiting...</div>
+                            <div class="ttt-board">
+                                </div>
+                            <div id="ttt-share-link" class="mt-4 text-sm text-gray-300"></div>
+                            <div class="mt-6 flex justify-center space-x-4">
+                                <button id="ttt-restart-btn" class="pixel-font text-sm bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded-lg shadow-lg">Restart</button>
+                                <button id="ttt-back-to-lobby-btn" class="pixel-font text-sm bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-lg">Lobby</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="delete-chat-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm p-6 space-y-4 text-center">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Delete Chat</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">Are you sure you want to permanently delete this entire conversation?</p>
+                    <div class="flex justify-center space-x-4">
+                         <button id="cancel-delete-btn" class="py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-500 transition">Cancel</button>
+                         <button id="confirm-delete-btn" class="py-2 px-4 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition">Delete</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-t-md flex justify-around py-0.5 px-1 border-t-2 border-transparent dark:border-gray-700 z-10">
+            <button data-page="chats-page" class="nav-btn flex flex-col items-center justify-center w-full py-1 rounded-lg transition-colors duration-200">
+                <div class="relative">
+                    <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                    <span id="chats-badge" class="hidden absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                </div>
+                <span class="text-xs font-semibold">Chats</span>
+            </button>
+            <button data-page="search-users-page" class="nav-btn flex flex-col items-center justify-center w-full py-1 rounded-lg transition-colors duration-200">
+                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <span class="text-xs font-semibold">Search</span>
+            </button>
+            <button data-page="game-zone-page" class="nav-btn flex flex-col items-center justify-center w-full py-1 rounded-lg transition-colors duration-200">
+                <svg class="w-5 h-5 mb-0.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h4m-2-2v4"/><path d="M14 12h.01"/><path d="M18 14h.01"/><path d="M18 10h.01"/><path d="M4 17.5V12a8 8 0 1 1 16 0v5.5a2.5 2.5 0 0 1-5 0V17a1 1 0 0 0-2 0v.5a2.5 2.5 0 0 1-5 0Z"/></svg>
+                <span class="text-xs font-semibold">Games</span>
+            </button>
+            <button data-page="profile-page" class="nav-btn flex flex-col items-center justify-center w-full py-1 rounded-lg transition-colors duration-200">
+                <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                <span class="text-xs font-semibold">Profile</span>
+            </button>
+        </nav>
+    </div>
+
+    <script type="module">
+        // =================================================================
+        // 1. FIREBASE SDK IMPORTS (FROM CDN)
+        // =================================================================
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            signOut,
+            GoogleAuthProvider,
+            signInWithPopup
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, getDoc, setDoc, updateDoc, deleteDoc,
+            collection, query, where, orderBy, onSnapshot, addDoc,
+            serverTimestamp, runTransaction, getDocs, limit, writeBatch, Timestamp, increment, arrayUnion, arrayRemove
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { 
+            getDatabase, ref, onValue, set, onDisconnect, serverTimestamp as rtdbServerTimestamp 
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+        import { 
+            getStorage, 
+            ref as storageRef, 
+            uploadBytes, 
+            getDownloadURL 
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+        
+        // =================================================================
+        // 2. FIREBASE CONFIGURATION
+        // =================================================================
+       const firebaseConfig = {
+          apiKey: "AIzaSyBMZBqPHViEWGA7mT_GN_mePBOnqT1NYz0",
+          authDomain: "chat-app-e1891.firebaseapp.com",
+          projectId: "chat-app-e1891",
+          storageBucket: "chat-app-e1891.appspot.com",
+          messagingSenderId: "889518853542",
+          appId: "1:889518853542:web:969c0d35177a3fb2fd9367"
+        };
+
+        // =================================================================
+        // 3. INITIALIZE FIREBASE & SERVICES
+        // =================================================================
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const rtdb = getDatabase(app);
+        const storage = getStorage(app);
+        
+        // =================================================================
+        // 4. GLOBAL STATE & DOM REFERENCES
+        // =================================================================
+        let currentUser = null;
+        let currentChatPartner = null;
+        let unsubscribeChats = null;
+        let unsubscribeUsers = null;
+        let unsubscribeMessages = null;
+        let unsubscribePartnerStatus = null;
+        let unsubscribeTypingStatus = null;
+        let typingTimeout = null;
+        let currentReply = null;
+        let geminiChatHistory = [];
+        let readReceiptObserver = null;
+        let pressHoldTimer = null;
+        let activeMessageForReaction = null;
+
+        // Data caches for real-time updates
+        let allChatsData = [];
+        let allUsersData = {};
+        
+        const loadingScreen = document.getElementById('loading-screen');
+        const authPage = document.getElementById('auth-page');
+        const appContainer = document.getElementById('app-container');
+        const pages = document.querySelectorAll('.page');
+        
+        // Forms & Toggles
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const showSignup = document.getElementById('show-signup');
+        const showLogin = document.getElementById('show-login');
+        
+        // Buttons
+        const googleSigninBtn = document.getElementById('google-signin-btn');
+        const googleSignupBtn = document.getElementById('google-signup-btn');
+        const logoutButton = document.getElementById('logout-button');
+        const navButtons = document.querySelectorAll('.nav-btn');
+        const openGeminiBtn = document.getElementById('open-gemini-btn');
+        
+        // Chat List
+        const searchInput = document.getElementById('search-input');
+        const chatList = document.getElementById('chat-list');
+        const chatsBadge = document.getElementById('chats-badge');
+        
+        // Chat Room
+        const chatRoomPage = document.getElementById('chat-room-page');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const messagesContainer = document.getElementById('messages-container');
+        const backToChatsBtn = document.getElementById('back-to-chats-btn');
+        const chatRoomHeaderClickable = document.getElementById('chat-room-header-clickable');
+        const chatRoomUsername = document.getElementById('chat-room-username');
+        const chatRoomPic = document.getElementById('chat-room-pic');
+        const chatRoomStatusDot = document.getElementById('chat-room-status-dot');
+        const chatRoomStatusText = document.getElementById('chat-room-status-text');
+        const replyPreviewContainer = document.getElementById('reply-preview-container');
+        const replyPreviewUsername = document.getElementById('reply-preview-username');
+        const replyPreviewText = document.getElementById('reply-preview-text');
+        const cancelReplyBtn = document.getElementById('cancel-reply-btn');
+        const chatSettingsBtn = document.getElementById('chat-settings-btn');
+        const chatSettingsMenu = document.getElementById('chat-settings-menu');
+        const deleteChatBtn = document.getElementById('delete-chat-btn');
+        const emojiReactionPicker = document.getElementById('emoji-reaction-picker');
+
+        // User Search
+        const searchUsersPage = document.getElementById('search-users-page');
+        const backFromSearchBtn = document.getElementById('back-from-search-btn');
+        const userSearchInput = document.getElementById('user-search-input');
+        const userSearchResults = document.getElementById('user-search-results');
+
+        // Profile Page
+        const profilePicContainer = document.getElementById('profile-pic-container');
+        const profilePicInput = document.getElementById('profile-pic-input');
+        const profilePicDisplay = document.getElementById('profile-pic-display');
+        const profileUsername = document.getElementById('profile-username');
+        const profileEmail = document.getElementById('profile-email');
+        const editBioBtn = document.getElementById('edit-bio-btn');
+        const saveBioBtn = document.getElementById('save-bio-btn');
+        const bioText = document.getElementById('bio-text');
+        const bioInput = document.getElementById('bio-input');
+
+        // Partner Profile Page
+        const partnerProfilePage = document.getElementById('partner-profile-page');
+        const backFromPartnerProfileBtn = document.getElementById('back-from-partner-profile-btn');
+        const partnerProfilePic = document.getElementById('partner-profile-pic');
+        const partnerProfileUsername = document.getElementById('partner-profile-username');
+        const partnerProfileBio = document.getElementById('partner-profile-bio');
+
+        // Gemini Page
+        const geminiPage = document.getElementById('gemini-page');
+        const backFromGeminiBtn = document.getElementById('back-from-gemini-btn');
+        const geminiMessagesContainer = document.getElementById('gemini-messages-container');
+        const geminiMessageForm = document.getElementById('gemini-message-form');
+        const geminiMessageInput = document.getElementById('gemini-message-input');
+        const geminiTypingIndicator = document.getElementById('gemini-typing-indicator');
+
+        // Modals
+        const deleteChatModal = document.getElementById('delete-chat-modal');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+        // AI Rewrite References
+        const aiRewriteBtn = document.getElementById('ai-rewrite-btn');
+        const aiRewritePopup = document.getElementById('ai-rewrite-popup');
+        const closeRewritePopupBtn = document.getElementById('close-rewrite-popup-btn');
+        const rewriteSuggestionsContainer = document.getElementById('rewrite-suggestions');
+        
+        // Theme Toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeToggleSlider = document.getElementById('theme-toggle-slider');
+
+        // =================================================================
+        // 5. HELPER FUNCTIONS
+        // =================================================================
+        const getInitials = (name = '') => name ? name.charAt(0).toUpperCase() : '?';
+        const getPlaceholderUrl = (initials) => `https://placehold.co/100x100/6a0dad/white?text=${initials}`;
+        const timeAgo = (timestamp) => {
+            if (!timestamp) return '';
+            const now = Date.now();
+            const seconds = Math.floor((now - timestamp.toMillis()) / 1000);
+            
+            if (seconds < 60) return `just now`;
+            
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + " years ago";
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + " months ago";
+            interval = seconds / 86400;
+            if (interval > 1) {
+                const days = Math.floor(interval);
+                if (days === 1) return "yesterday";
+                return days + " days ago";
+            }
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + " hours ago";
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + " minutes ago";
+            return `just now`;
+        };
+        const formatMessageTime = (timestamp) => {
+            if (!timestamp) return '';
+            return timestamp.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        };
+
+        const extractUrls = (text) => {
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            return text.match(urlRegex) || [];
+        }
+
+        async function fetchLinkPreview(url) {
+            const cachedData = sessionStorage.getItem(url);
+            if (cachedData) {
+                return JSON.parse(cachedData);
+            }
+
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            try {
+                const response = await fetch(proxyUrl);
+                if (!response.ok) return null;
+                const data = await response.json();
+                const html = data.contents;
+                
+                if (!html) return null;
+
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const title = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || doc.querySelector('title')?.textContent || '';
+                const description = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+                let image = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
+                
+                if (image && !image.startsWith('http')) {
+                    try {
+                        const urlObj = new URL(url);
+                        image = `${urlObj.origin}${image}`;
+                    } catch (e) {
+                        image = '';
+                    }
+                }
+
+                const previewData = {
+                    url,
+                    title: title.trim(),
+                    description: description.trim(),
+                    image: image || 'https://placehold.co/64x64/eee/ccc?text=N/A'
+                };
+
+                sessionStorage.setItem(url, JSON.stringify(previewData));
+                return previewData;
+            } catch (error) {
+                console.error("Error fetching link preview:", error);
+                return null;
+            }
+        }
+
+
+        // =================================================================
+        // 6. PAGE NAVIGATION LOGIC
+        // =================================================================
+        function showPage(pageId, isOverlay = false) {
+            if (!isOverlay) {
+                pages.forEach(page => page.classList.add('hidden'));
+            }
+            const activePage = document.getElementById(pageId);
+            if (activePage) {
+                activePage.classList.remove('hidden');
+                if(!isOverlay) activePage.classList.add('animate-fade-in');
+            }
+            if (!isOverlay) updateNavButtons(pageId);
+        }
+
+        function hidePage(pageId) {
+            const page = document.getElementById(pageId);
+            if(page) page.classList.add('hidden');
+        }
+
+        function updateNavButtons(activePageId) {
+            navButtons.forEach(btn => {
+                const isTarget = btn.dataset.page === activePageId;
+                btn.classList.toggle('text-gray-500', !isTarget);
+                btn.classList.toggle('dark:text-gray-400', !isTarget);
+                
+                // New active state with gradient border
+                btn.classList.toggle('border-t-2', isTarget);
+                btn.classList.toggle('border-gradient-custom', isTarget);
+                btn.classList.toggle('text-primary', isTarget);
+                btn.classList.toggle('dark:text-white', isTarget);
+
+                // Remove old background highlight
+                btn.classList.remove('bg-purple-100', 'dark:bg-gray-700');
+            });
+        }
+        
+        navButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const pageId = btn.dataset.page;
+                if (pageId === 'search-users-page') {
+                    showPage('search-users-page', true);
+                    userSearchInput.value = '';
+                    userSearchResults.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center mt-4">Type a username to find users.</p>';
+                } else {
+                    showPage(pageId);
+                }
+            });
+        });
+
+        openGeminiBtn.addEventListener('click', () => {
+            // Add a greeting message if the chat is empty
+            if (geminiChatHistory.length === 0) {
+                const greetingText = "Hello! I'm Gemini. How can I help you today? You can ask me questions, request translations, or get help with your writing.";
+                const greetingMessage = { role: 'model', parts: [{ text: greetingText }] };
+                geminiChatHistory.push(greetingMessage);
+                renderGeminiMessage(greetingText, 'gemini');
+            }
+            showPage('gemini-page', true);
+        });
+
+        // =================================================================
+        // 7. AUTHENTICATION & PRESENCE MANAGEMENT
+        // =================================================================
+        onAuthStateChanged(auth, async (user) => {
+            loadingScreen.classList.add('hidden');
+            if (user) {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    currentUser = { uid: user.uid, email: user.email, ...userDoc.data() };
+                    authPage.classList.add('hidden');
+                    appContainer.classList.remove('hidden');
+                    showPage('chats-page');
+                    setupRealtimeListeners();
+                    managePresence(user.uid);
+                    // Update profile UI
+                    profileUsername.textContent = currentUser.username;
+                    profileEmail.textContent = currentUser.email;
+                    bioText.textContent = currentUser.bio || 'This is your bio. Click edit to change it.';
+                    const initials = getInitials(currentUser.username);
+                    const profilePicUrl = currentUser.profilePicUrl || getPlaceholderUrl(initials);
+                    profilePicDisplay.src = profilePicUrl;
+                } else {
+                    console.error("User exists in Auth but not in Firestore. Logging out.");
+                    signOut(auth); 
+                }
+            } else {
+                currentUser = null;
+                authPage.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+                cleanupRealtimeListeners();
+            }
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                alert("Login Error: " + error.message);
+            }
+        });
+
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('signup-username').value.trim();
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+
+            if (username.length < 3) return alert("Username must be at least 3 characters.");
+            if (password.length < 6) return alert("Password must be at least 6 characters.");
+
+            try {
+                const usernameDoc = await getDoc(doc(db, "usernames", username.toLowerCase()));
+                if (usernameDoc.exists()) throw new Error("Username is already taken.");
+
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                await runTransaction(db, async (transaction) => {
+                    const userRef = doc(db, "users", user.uid);
+                    const usernameRef = doc(db, "usernames", username.toLowerCase());
+                    
+                    transaction.set(userRef, {
+                        uid: user.uid,
+                        username: username,
+                        username_lowercase: username.toLowerCase(),
+                        email: email,
+                        profilePicUrl: null,
+                        bio: '', // Initialize with empty bio
+                        createdAt: serverTimestamp(),
+                        status: {
+                            state: 'offline',
+                            last_changed: serverTimestamp(),
+                        }
+                    });
+                    transaction.set(usernameRef, { uid: user.uid });
+                });
+            } catch (error) {
+                alert("Signup Error: " + error.message);
+            }
+        });
+        
+        async function handleGoogleSignIn() {
+            const provider = new GoogleAuthProvider();
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+
+                // Check if user already exists in Firestore
+                const userDocRef = doc(db, "users", user.uid);
+                const userDoc = await getDoc(userDocRef);
+
+                if (!userDoc.exists()) {
+                    // New user, create their profile
+                    const username = user.displayName.split(' ')[0].toLowerCase() + Math.floor(Math.random() * 1000);
+                    await setDoc(userDocRef, {
+                        uid: user.uid,
+                        username: user.displayName,
+                        username_lowercase: user.displayName.toLowerCase(),
+                        email: user.email,
+                        profilePicUrl: user.photoURL,
+                        bio: '',
+                        createdAt: serverTimestamp(),
+                        status: {
+                            state: 'offline',
+                            last_changed: serverTimestamp(),
+                        }
+                    });
+                     await setDoc(doc(db, "usernames", username), { uid: user.uid });
+                }
+            } catch (error) {
+                console.error("Google Sign-In Error:", error);
+                alert("Could not sign in with Google. Please try again.");
+            }
+        }
+        googleSigninBtn.addEventListener('click', handleGoogleSignIn);
+        googleSignupBtn.addEventListener('click', handleGoogleSignIn);
+
+        logoutButton.addEventListener('click', async () => {
+            if (currentUser) {
+                const userStatusRef = doc(db, 'users', currentUser.uid);
+                await updateDoc(userStatusRef, {
+                    status: { state: 'offline', last_changed: serverTimestamp() }
+                });
+            }
+            signOut(auth);
+        });
+
+        showSignup.addEventListener('click', (e) => { e.preventDefault(); loginForm.parentElement.classList.add('hidden'); signupForm.parentElement.classList.remove('hidden'); });
+        showLogin.addEventListener('click', (e) => { e.preventDefault(); signupForm.parentElement.classList.add('hidden'); loginForm.parentElement.classList.remove('hidden'); });
+
+        function managePresence(uid) {
+            const userStatusDatabaseRef = ref(rtdb, '/status/' + uid);
+            const userStatusFirestoreRef = doc(db, '/users/' + uid);
+
+            const isOfflineForFirestore = { state: 'offline', last_changed: serverTimestamp() };
+            const isOnlineForFirestore = { state: 'online', last_changed: serverTimestamp() };
+
+            const connectedRef = ref(rtdb, '.info/connected');
+            onValue(connectedRef, (snap) => {
+                if (snap.val() === false) {
+                    updateDoc(userStatusFirestoreRef, { status: isOfflineForFirestore });
+                    return;
+                }
+                const onDisconnectRef = onDisconnect(userStatusDatabaseRef);
+                onDisconnectRef.set({ state: 'offline', last_changed: rtdbServerTimestamp() });
+                set(userStatusDatabaseRef, { state: 'online', last_changed: rtdbServerTimestamp() });
+                updateDoc(userStatusFirestoreRef, { status: isOnlineForFirestore });
+            });
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    updateDoc(userStatusFirestoreRef, { status: isOfflineForFirestore });
+                } else {
+                    updateDoc(userStatusFirestoreRef, { status: isOnlineForFirestore });
+                }
+            });
+        }
+
+        // =================================================================
+        // 8. REALTIME LISTENERS & CHAT LIST
+        // =================================================================
+        function cleanupRealtimeListeners() {
+            if (unsubscribeChats) unsubscribeChats();
+            if (unsubscribeUsers) unsubscribeUsers();
+            if (unsubscribeMessages) unsubscribeMessages();
+            if (unsubscribePartnerStatus) unsubscribePartnerStatus();
+            if (unsubscribeTypingStatus) unsubscribeTypingStatus();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        }
+
+        function setupRealtimeListeners() {
+            cleanupRealtimeListeners();
+
+            // Listener for all user data changes (for real-time statuses)
+            const usersQuery = query(collection(db, "users"));
+            unsubscribeUsers = onSnapshot(usersQuery, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    allUsersData[change.doc.id] = change.doc.data();
+                });
+                renderCombinedChatList(); // Re-render the list when any user's status changes
+            });
+
+            // Listener for chat data changes
+            const chatsQuery = query(
+                collection(db, "chats"),
+                where("participants", "array-contains", currentUser.uid),
+                orderBy("lastMessageTimestamp", "desc")
+            );
+            
+            unsubscribeChats = onSnapshot(chatsQuery, (snapshot) => {
+                allChatsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderCombinedChatList(); // Re-render the list when chat data changes
+            });
+        }
+
+        function renderCombinedChatList() {
+            if (allChatsData.length === 0) {
+                chatList.innerHTML = `<p class="text-gray-500 dark:text-gray-400 text-center mt-8">No chats yet. Click the 'Search' button to find users and start a conversation.</p>`;
+                return;
+            }
+
+            let totalUnread = 0;
+            const chatHtml = allChatsData.map(chat => {
+                const partnerId = chat.participants.find(id => id !== currentUser.uid);
+                if (!partnerId || !allUsersData[partnerId]) return ''; // Skip if partner data not loaded yet
+
+                const partner = allUsersData[partnerId];
+                const currentUserUnreadCount = chat.unreadCount?.[currentUser.uid] || 0;
+                totalUnread += currentUserUnreadCount;
+
+                const isOnline = partner.status?.state === 'online';
+                const initials = getInitials(partner.username);
+                const profilePicUrl = partner.profilePicUrl || getPlaceholderUrl(initials);
+                const unreadIndicator = currentUserUnreadCount > 0 ? `<span class="w-3 h-3 bg-red-500 rounded-full"></span>` : '';
+
+                return `
+                <div class="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition chat-item" data-partner-id="${partner.uid}" data-partner-name="${partner.username}" data-partner-pic="${partner.profilePicUrl || ''}">
+                    <div class="relative w-12 h-12 flex-shrink-0 mr-4">
+                        <img src="${profilePicUrl}" class="w-12 h-12 rounded-full object-cover" alt="Profile Pic">
+                        <div class="w-3.5 h-3.5 rounded-full absolute bottom-0 right-0 border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-gray-400'}"></div>
+                    </div>
+                    <div class="flex-1 overflow-hidden">
+                        <p class="font-bold truncate text-gray-900 dark:text-white">${partner.username}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 truncate">${chat.lastMessage || 'No messages yet'}</p>
+                    </div>
+                    <div class="w-8 flex justify-end items-center">
+                        ${unreadIndicator}
+                    </div>
+                </div>`;
+            }).join('');
+
+            chatList.innerHTML = chatHtml;
+
+            if (totalUnread > 0) {
+                chatsBadge.classList.remove('hidden');
+            } else {
+                chatsBadge.classList.add('hidden');
+            }
+        }
+        
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            document.querySelectorAll('.chat-item').forEach(item => {
+                const partnerName = item.dataset.partnerName.toLowerCase();
+                item.style.display = partnerName.includes(searchTerm) ? 'flex' : 'none';
+            });
+        });
+
+        // =================================================================
+        // 9. CHAT ROOM LOGIC & READ RECEIPTS & TYPING INDICATOR
+        // =================================================================
+
+        // NEW: Handler for visibility change to pause/resume read receipt observer
+        function handleVisibilityChange() {
+            if (!readReceiptObserver || chatRoomPage.classList.contains('hidden')) {
+                return;
+            }
+
+            if (document.visibilityState === 'hidden') {
+                // When tab is hidden, disconnect the observer to stop marking messages as read
+                readReceiptObserver.disconnect();
+            } else if (document.visibilityState === 'visible') {
+                // When tab is visible again, re-observe all currently unread messages
+                messagesContainer.querySelectorAll('.unread-message').forEach(el => {
+                    readReceiptObserver.observe(el);
+                });
+            }
+        }
+
+        chatList.addEventListener('click', (e) => {
+            const chatItem = e.target.closest('.chat-item');
+            if (chatItem) {
+                openChatRoom({
+                    uid: chatItem.dataset.partnerId,
+                    username: chatItem.dataset.partnerName,
+                    profilePicUrl: chatItem.dataset.partnerPic
+                });
+            }
+        });
+        
+        async function openChatRoom(partner) {
+            currentChatPartner = partner;
+            showPage('chat-room-page', true);
+            chatRoomUsername.textContent = partner.username;
+
+            const initials = getInitials(partner.username);
+            chatRoomPic.src = partner.profilePicUrl || getPlaceholderUrl(initials);
+
+            // Setup IntersectionObserver for read receipts
+            if (readReceiptObserver) readReceiptObserver.disconnect();
+            readReceiptObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const messageWrapper = entry.target;
+                        const messageId = messageWrapper.dataset.messageId;
+                        markSingleMessageAsRead(messageId);
+                        observer.unobserve(messageWrapper); // Stop observing once it's marked as read
+                    }
+                });
+            }, { threshold: 0.8 }); // Trigger when 80% of the message is visible
+            
+            // Add visibility change listener
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+
+            if (unsubscribePartnerStatus) unsubscribePartnerStatus();
+            unsubscribePartnerStatus = onSnapshot(doc(db, "users", partner.uid), (docSnap) => {
+                const partnerData = docSnap.data();
+                if (partnerData) {
+                    currentChatPartner = { ...currentChatPartner, ...partnerData };
+                    updatePartnerStatusUI(partnerData.status);
+                }
+            });
+
+            function updatePartnerStatusUI(status) {
+                const isOnline = status?.state === "online";
+                chatRoomStatusDot.className = `w-3 h-3 rounded-full absolute bottom-0 right-0 border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`;
+                
+                if (isOnline) {
+                    chatRoomStatusText.textContent = "Online";
+                    chatRoomStatusText.className = "text-xs text-green-500";
+                } else {
+                    if (status?.last_changed) {
+                        chatRoomStatusText.textContent = `last seen ${timeAgo(status.last_changed)}`;
+                    } else {
+                        chatRoomStatusText.textContent = "Offline";
+                    }
+                    chatRoomStatusText.className = "text-xs text-gray-500";
+                }
+            }
+
+            const chatId = [currentUser.uid, currentChatPartner.uid].sort().join('_');
+            
+            messagesContainer.innerHTML = ""; // Clear previous messages
+
+            if (unsubscribeMessages) unsubscribeMessages();
+
+            const messagesQuery = query(
+                collection(db, `chats/${chatId}/messages`),
+                orderBy("timestamp", "asc")
+            );
+
+            let isInitialLoad = true;
+
+            unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
+                const isUserScrolledUp = messagesContainer.scrollHeight - messagesContainer.clientHeight > messagesContainer.scrollTop + 100;
+
+                snapshot.docChanges().forEach((change) => {
+                    const messageId = change.doc.id;
+                    const messageData = change.doc.data();
+
+                    if (change.type === "added") {
+                        const messageElement = createMessageElement(messageId, messageData);
+                        if (!isInitialLoad) {
+                            messageElement.classList.add("animate-fade-in-up");
+                        }
+                        messagesContainer.appendChild(messageElement);
+                        
+                        // If it's an unread message for the current user, observe it, but only if the tab is visible
+                        if (messageElement.classList.contains('unread-message') && document.visibilityState === 'visible') {
+                            readReceiptObserver.observe(messageElement);
+                        }
+                    }
+                    if (change.type === "removed") {
+                        const messageElement = messagesContainer.querySelector(`[data-message-id="${messageId}"]`);
+                        if (messageElement) {
+                            readReceiptObserver.unobserve(messageElement);
+                            messageElement.remove();
+                        }
+                    }
+                    if (change.type === "modified") {
+                        const existingElement = messagesContainer.querySelector(`[data-message-id="${messageId}"]`);
+                        if (existingElement) {
+                            // Stop observing the old element before replacing
+                            if(existingElement.classList.contains('unread-message')) {
+                                readReceiptObserver.unobserve(existingElement);
+                            }
+                            const updatedElement = createMessageElement(messageId, messageData);
+                            existingElement.replaceWith(updatedElement);
+                             if (updatedElement.classList.contains('unread-message') && document.visibilityState === 'visible') {
+                                readReceiptObserver.observe(updatedElement);
+                            }
+                        }
+                    }
+                });
+                
+                if (isInitialLoad) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    isInitialLoad = false;
+                } else if (!isUserScrolledUp) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            });
+
+            if (unsubscribeTypingStatus) unsubscribeTypingStatus();
+            const partnerTypingRef = ref(rtdb, `/typing/${chatId}/${partner.uid}`);
+            const typingIndicatorContainer = document.getElementById('typing-indicator-container');
+
+            unsubscribeTypingStatus = onValue(partnerTypingRef, (snap) => {
+                if (snap.exists() && snap.val() === true) {
+                    const initials = getInitials(currentChatPartner.username);
+                    const profilePicUrl = currentChatPartner.profilePicUrl || getPlaceholderUrl(initials);
+
+                    typingIndicatorContainer.innerHTML = `
+                        <div class="flex items-center space-x-2 animate-fade-in">
+                            <img src="${profilePicUrl}" class="w-8 h-8 rounded-full object-cover">
+                            <div class="px-4 py-3 rounded-2xl bg-gray-200 dark:bg-gray-700">
+                                <div class="flex items-center space-x-1">
+                                    <div class="w-2 h-2 bg-gray-500 rounded-full animate-blink" style="animation-delay: 0s;"></div>
+                                    <div class="w-2 h-2 bg-gray-500 rounded-full animate-blink" style="animation-delay: 0.2s;"></div>
+                                    <div class="w-2 h-2 bg-gray-500 rounded-full animate-blink" style="animation-delay: 0.4s;"></div>
+                                </div>
+                            </div>
+                        </div>`;
+                } else {
+                    typingIndicatorContainer.innerHTML = '';
+                }
+            });
+        }
+
+        function createMessageElement(id, msg) {
+            const isSender = msg.senderId === currentUser.uid;
+
+            const replyHtml = msg.replyTo ? `
+                <div class="p-2 mb-1 text-xs bg-black bg-opacity-10 dark:bg-white dark:bg-opacity-10 rounded-md">
+                    <p class="font-bold text-sky-500">${msg.replyTo.senderName}</p>
+                    <p class="truncate">${msg.replyTo.text}</p>
+                </div>
+            ` : '';
+
+            const readReceipt = isSender ? `
+                <div class="w-4 h-1.5 rounded-full ${msg.isRead ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-500'} transition-colors"></div>
+            ` : '';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex flex-col message-bubble-wrapper relative group ${isSender ? 'items-end' : 'items-start'}`;
+            wrapper.dataset.messageId = id;
+            wrapper.dataset.messageText = msg.text;
+            wrapper.dataset.messageSender = isSender ? currentUser.username : currentChatPartner.username;
+            
+            const isReceiver = msg.receiverId === currentUser.uid;
+            if(isReceiver && !msg.isRead) {
+                wrapper.classList.add('unread-message');
+            }
+
+            const urls = extractUrls(msg.text);
+            const linkPreviewContainerId = `link-preview-${id}`;
+            const linkPreviewHtml = urls.length > 0 ? `<div id="${linkPreviewContainerId}"></div>` : '';
+
+            const messageTextHtml = urls.length > 0 ? msg.text.replace(urls[0], `<a href="${urls[0]}" target="_blank" class="text-blue-400 underline">${urls[0]}</a>`) : msg.text;
+
+            const actionsMenu = isSender ? `
+                <div class="absolute top-1/2 -translate-y-1/2 ${isSender ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} p-2">
+                    <div class="relative">
+                        <button class="message-menu-btn opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-500 dark:text-gray-400">
+                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>
+                        </button>
+                        <div class="message-menu-dropdown hidden absolute bottom-full mb-1 right-0 bg-white dark:bg-gray-700 rounded-md shadow-lg z-10 w-24">
+                            <button class="unsend-btn text-red-600 dark:text-red-400 block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-message-id="${id}">Unsend</button>
+                        </div>
+                    </div>
+                </div>
+            ` : '';
+            
+            // NEW: Container for reaction chips
+            const reactionsContainerHtml = `<div class="reaction-container flex gap-1 mt-1 ${isSender ? 'justify-end' : 'justify-start'}"></div>`;
+
+            wrapper.innerHTML = `
+                ${actionsMenu}
+                <div class="flex items-end ${isSender ? 'flex-row-reverse' : ''}">
+                    <div class="max-w-xs lg:max-w-md">
+                        <div class="px-4 py-2 rounded-2xl ${isSender ? 'bg-primary text-white rounded-br-none' : 'bg-white dark:bg-gray-700 dark:text-white rounded-bl-none shadow-sm'} overflow-hidden">
+                            ${replyHtml}
+                            <p>${messageTextHtml}</p>
+                            ${linkPreviewHtml}
+                        </div>
+                    </div>
+                    <button class="action-btn reply-btn opacity-0 transition-opacity p-2 text-gray-500 dark:text-gray-400">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                    </button>
+                </div>
+                ${reactionsContainerHtml}
+                <div class="flex items-center mt-1 pr-2 space-x-2">
+                     <p class="text-xs text-gray-400 dark:text-gray-500">${formatMessageTime(msg.timestamp)}</p>
+                    ${readReceipt}
+                </div>
+            `;
+
+            // NEW: Populate reactions
+            const reactionsContainer = wrapper.querySelector('.reaction-container');
+            if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+                Object.entries(msg.reactions).forEach(([emoji, uids]) => {
+                    if (uids.length > 0) {
+                        const reactionChip = document.createElement('button');
+                        const userHasReacted = uids.includes(currentUser.uid);
+                        reactionChip.className = `reaction-chip ${userHasReacted ? 'reacted-by-me' : ''}`;
+                        reactionChip.textContent = `${emoji} ${uids.length}`;
+                        reactionChip.dataset.emoji = emoji;
+                        reactionsContainer.appendChild(reactionChip);
+                    }
+                });
+            }
+
+
+            if (urls.length > 0) {
+                const previewContainer = wrapper.querySelector(`#${linkPreviewContainerId}`);
+                previewContainer.innerHTML = `<div class="mt-2 p-2 flex items-center justify-center"><div class="w-4 h-4 border-2 border-t-primary border-gray-200 rounded-full animate-spin"></div></div>`;
+                
+                fetchLinkPreview(urls[0]).then(previewData => {
+                    if (previewData) {
+                        previewContainer.innerHTML = `
+                        <a href="${previewData.url}" target="_blank" rel="noopener noreferrer" class="block mt-2 link-preview p-2 rounded-lg bg-gray-100 dark:bg-gray-600">
+                            <div class="flex items-center space-x-3">
+                                <img src="${previewData.image}" class="link-preview-image rounded-md flex-shrink-0" onerror="this.onerror=null;this.src='https://placehold.co/64x64/eee/ccc?text=N/A';">
+                                <div class="overflow-hidden">
+                                    <p class="font-bold text-sm truncate text-gray-800 dark:text-gray-200">${previewData.title}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate">${previewData.description}</p>
+                                </div>
+                            </div>
+                        </a>
+                        `;
+                    } else {
+                         previewContainer.innerHTML = `<div class="mt-2 p-2 text-xs text-gray-400">Preview not available</div>`;
+                    }
+                });
+            }
+
+            return wrapper;
+        }
+
+        async function markSingleMessageAsRead(messageId) {
+            if (!currentChatPartner || !currentUser) return;
+            const chatId = [currentUser.uid, currentChatPartner.uid].sort().join('_');
+            const messageRef = doc(db, `chats/${chatId}/messages`, messageId);
+            const chatRef = doc(db, 'chats', chatId);
+
+            try {
+                await updateDoc(messageRef, { isRead: true });
+                await updateDoc(chatRef, {
+                    [`unreadCount.${currentUser.uid}`]: increment(-1)
+                });
+            } catch (error) {
+                console.error("Error marking message as read:", error);
+            }
+        }
+
+        messageInput.addEventListener('input', () => {
+            if (!currentChatPartner) return;
+            const chatId = [currentUser.uid, currentChatPartner.uid].sort().join('_');
+            const typingRef = ref(rtdb, `/typing/${chatId}/${currentUser.uid}`);
+            set(typingRef, true);
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                set(typingRef, false);
+            }, 2000);
+            
+            // Show/hide AI rewrite button
+            if (messageInput.value.trim().length > 0) {
+                aiRewriteBtn.classList.remove('hidden');
+            } else {
+                aiRewriteBtn.classList.add('hidden');
+                aiRewritePopup.classList.add('hidden');
+            }
+        });
+
+        messageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = messageInput.value.trim();
+            if (text === '' || !currentChatPartner) return;
+            
+            messageInput.value = '';
+            aiRewriteBtn.classList.add('hidden'); // Hide on send
+            aiRewritePopup.classList.add('hidden'); // Hide on send
+            
+            const chatId = [currentUser.uid, currentChatPartner.uid].sort().join('_');
+            
+            clearTimeout(typingTimeout);
+            const typingRef = ref(rtdb, `/typing/${chatId}/${currentUser.uid}`);
+            set(typingRef, false);
+
+            const newMessage = {
+                senderId: currentUser.uid,
+                receiverId: currentChatPartner.uid,
+                text: text,
+                type: "text",
+                isRead: false,
+                timestamp: serverTimestamp(),
+                reactions: {}
+            };
+
+            if (currentReply) {
+                newMessage.replyTo = currentReply;
+            }
+
+            try {
+                const chatRef = doc(db, "chats", chatId);
+                const messagesRef = collection(db, `chats/${chatId}/messages`);
+
+                await addDoc(messagesRef, newMessage);
+
+                await setDoc(chatRef, {
+                    participants: [currentUser.uid, currentChatPartner.uid],
+                    lastMessage: text,
+                    lastMessageTimestamp: serverTimestamp(),
+                    lastSenderId: currentUser.uid,
+                    unreadCount: {
+                        [currentUser.uid]: 0,
+                        [currentChatPartner.uid]: increment(1)
+                    }
+                }, { merge: true });
+
+
+            } catch (error) {
+                console.error("Error sending message: ", error);
+                alert("Could not send message.");
+                messageInput.value = text;
+            } finally {
+                cancelReply();
+            }
+        });
+
+        backToChatsBtn.addEventListener('click', () => {
+            hidePage('chat-room-page');
+            currentChatPartner = null;
+            if (unsubscribeMessages) unsubscribeMessages();
+            if (unsubscribePartnerStatus) unsubscribePartnerStatus();
+            if (unsubscribeTypingStatus) unsubscribeTypingStatus();
+            if (readReceiptObserver) readReceiptObserver.disconnect();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        });
+        
+        // =================================================================
+        // 10. MESSAGE INTERACTION LOGIC (REPLY, UNSEND & REWRITE)
+        // =================================================================
+        messagesContainer.addEventListener('click', (e) => {
+            const replyButton = e.target.closest('.reply-btn');
+            const menuButton = e.target.closest('.message-menu-btn');
+            const unsendButton = e.target.closest('.unsend-btn');
+            const reactionChip = e.target.closest('.reaction-chip');
+
+            document.querySelectorAll('.message-menu-dropdown').forEach(menu => {
+                if (!menu.previousElementSibling.contains(e.target)) {
+                    menu.classList.add('hidden');
+                }
+            });
+
+            if (replyButton) {
+                const messageWrapper = replyButton.closest('.message-bubble-wrapper');
+                currentReply = {
+                    messageId: messageWrapper.dataset.messageId,
+                    text: messageWrapper.dataset.messageText,
+                    senderName: messageWrapper.dataset.messageSender
+                };
+                showReplyPreview();
+            }
+
+             if (menuButton) {
+                const dropdown = menuButton.nextElementSibling;
+                dropdown.classList.toggle('hidden');
+            }
+
+            if (unsendButton) {
+                const messageId = unsendButton.dataset.messageId;
+                if (confirm('Are you sure you want to unsend this message?')) {
+                    unsendMessage(messageId);
+                }
+            }
+
+            if (reactionChip) {
+                const messageId = reactionChip.closest('.message-bubble-wrapper').dataset.messageId;
+                const emoji = reactionChip.dataset.emoji;
+                toggleEmojiReaction(messageId, emoji);
+            }
+        });
+
+        async function unsendMessage(messageId) {
+            if (!currentChatPartner || !currentUser) return;
+            const chatId = [currentUser.uid, currentChatPartner.uid].sort().join('_');
+            const messageRef = doc(db, `chats/${chatId}/messages/${messageId}`);
+
+            try {
+                await deleteDoc(messageRef);
+                // Note: We don't update the `lastMessage` on the chat document for simplicity.
+                // The chat preview might show a deleted message until a new one is sent.
+            } catch (error) {
+                console.error("Error unsending message:", error);
+                alert("Could not unsend the message.");
+            }
+        }
+
+
+        function showReplyPreview() {
+            if (!currentReply) return;
+            replyPreviewUsername.textContent = `Replying to ${currentReply.senderName}`;
+            replyPreviewText.textContent = currentReply.text;
+            replyPreviewContainer.classList.remove('hidden');
+            messageInput.focus();
+        }
+
+        function cancelReply() {
+            currentReply = null;
+            replyPreviewContainer.classList.add('hidden');
+        }
+        cancelReplyBtn.addEventListener('click', cancelReply);
+
+        // AI Rewrite Logic
+        aiRewriteBtn.addEventListener('click', async () => {
+            const text = messageInput.value.trim();
+            if (!text) return;
+
+            aiRewritePopup.classList.remove('hidden');
+            rewriteSuggestionsContainer.innerHTML = '<div class="text-center text-sm text-gray-500">Generating suggestions...</div>';
+
+            // New, more robust prompt asking for JSON output
+            const prompt = `Analyze the following text and its language (which could be Hindi, English, or Hinglish). Provide three alternative versions in the same language. Your response MUST be a valid JSON object, and nothing else. The JSON object should have three keys: "formal", "casual", and "simple".
+
+            Text: "${text}"`;
+
+            try {
+                let result = await callGeminiAPI([{ role: 'user', parts: [{ text: prompt }] }]);
+                
+                // Clean the result to ensure it's valid JSON
+                // Gemini sometimes wraps its response in ```json ... ```
+                const jsonResponse = result.replace(/```json/g, '').replace(/```/g, '').trim();
+                const suggestions = JSON.parse(jsonResponse);
+
+                rewriteSuggestionsContainer.innerHTML = ''; // Clear loading message
+
+                // Use the keys from the JSON response directly
+                ['formal', 'casual', 'simple'].forEach(tone => {
+                    if (suggestions[tone]) {
+                        const suggestionEl = document.createElement('div');
+                        suggestionEl.className = 'rewrite-suggestion p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer';
+                        const capitalizedTone = tone.charAt(0).toUpperCase() + tone.slice(1);
+                        suggestionEl.innerHTML = `<span class="font-bold">${capitalizedTone}:</span> ${suggestions[tone]}`;
+                        suggestionEl.addEventListener('click', () => {
+                            messageInput.value = suggestions[tone];
+                            aiRewritePopup.classList.add('hidden');
+                            messageInput.focus();
+                        });
+                        rewriteSuggestionsContainer.appendChild(suggestionEl);
+                    }
+                });
+
+            } catch (error) {
+                rewriteSuggestionsContainer.textContent = "Sorry, couldn't generate suggestions.";
+                console.error("AI Rewrite Error:", error);
+            }
+        });
+
+        closeRewritePopupBtn.addEventListener('click', () => {
+            aiRewritePopup.classList.add('hidden');
+        });
+
+        // =================================================================
+        // 11. USER SEARCH LOGIC
+        // =================================================================
+        
+        backFromSearchBtn.addEventListener('click', () => hidePage('search-users-page'));
+
+        userSearchInput.addEventListener('input', async (e) => {
+            const searchTerm = e.target.value.trim().toLowerCase();
+            if (searchTerm.length < 2) {
+                userSearchResults.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center mt-4">Keep typing to search...</p>';
+                return;
+            }
+
+            try {
+                const usersRef = collection(db, "users");
+                const q = query(usersRef, 
+                    where("username_lowercase", ">=", searchTerm),
+                    where("username_lowercase", "<=", searchTerm + '\uf8ff'),
+                    limit(10)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                const users = [];
+                querySnapshot.forEach((doc) => {
+                    if (doc.id !== currentUser.uid) users.push(doc.data());
+                });
+                renderUserSearchResults(users);
+            } catch (error) {
+                console.error("Error searching users:", error);
+                userSearchResults.innerHTML = '<p class="text-red-500 text-center mt-4">Error searching for users. Ensure database indexes are configured.</p>';
+            }
+        });
+
+        function renderUserSearchResults(users) {
+            if (users.length === 0) {
+                userSearchResults.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center mt-4">No users found.</p>';
+                return;
+            }
+            userSearchResults.innerHTML = users.map(user => {
+                const isOnline = user.status?.state === 'online';
+                const initials = getInitials(user.username);
+                const profilePicUrl = user.profilePicUrl || getPlaceholderUrl(initials);
+                return `
+                <div class="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition user-search-item" data-user-id="${user.uid}" data-user-name="${user.username}" data-user-pic="${user.profilePicUrl || ''}">
+                    <div class="relative w-12 h-12 flex-shrink-0 mr-4">
+                        <img src="${profilePicUrl}" class="w-12 h-12 rounded-full object-cover" alt="Profile Pic">
+                        <div class="w-3.5 h-3.5 rounded-full absolute bottom-0 right-0 border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-gray-400'}"></div>
+                    </div>
+                    <div class="flex-1 overflow-hidden">
+                        <p class="font-bold truncate text-gray-900 dark:text-white">${user.username}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 truncate">${user.email}</p>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        userSearchResults.addEventListener('click', (e) => {
+            const userItem = e.target.closest('.user-search-item');
+            if (userItem) {
+                hidePage('search-users-page');
+                openChatRoom({
+                    uid: userItem.dataset.userId,
+                    username: userItem.dataset.userName,
+                    profilePicUrl: userItem.dataset.userPic
+                });
+            }
+        });
+
+        // =================================================================
+        // 12. PROFILE & BIO LOGIC
+        // =================================================================
+        profilePicContainer.addEventListener('click', () => profilePicInput.click());
+
+        profilePicInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file || !currentUser) return;
+
+            const toast = document.createElement('div');
+            toast.textContent = 'Uploading...';
+            toast.className = 'fixed top-5 right-5 bg-blue-500 text-white py-2 px-4 rounded-lg shadow-lg z-50';
+            document.body.appendChild(toast);
+
+            try {
+                const filePath = `profile-pics/${currentUser.uid}/${Date.now()}-${file.name}`;
+                const fileRef = storageRef(storage, filePath);
+                
+                const snapshot = await uploadBytes(fileRef, file);
+                const photoURL = await getDownloadURL(snapshot.ref);
+
+                await updateDoc(doc(db, 'users', currentUser.uid), { profilePicUrl: photoURL });
+                currentUser.profilePicUrl = photoURL;
+                
+                profilePicDisplay.src = photoURL;
+                
+                toast.textContent = 'Upload complete!';
+                toast.className = 'fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg z-50';
+            } catch (error) {
+                console.error("Upload failed:", error);
+                toast.textContent = 'Upload failed!';
+                toast.className = 'fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-lg z-50';
+            } finally {
+                setTimeout(() => toast.remove(), 3000);
+                profilePicInput.value = '';
+            }
+        });
+
+        editBioBtn.addEventListener('click', () => {
+            bioText.classList.add('hidden');
+            editBioBtn.classList.add('hidden');
+            bioInput.classList.remove('hidden');
+            saveBioBtn.classList.remove('hidden');
+            bioInput.value = currentUser.bio || '';
+            bioInput.focus();
+        });
+
+        saveBioBtn.addEventListener('click', async () => {
+            const newBio = bioInput.value.trim();
+            try {
+                await updateDoc(doc(db, 'users', currentUser.uid), { bio: newBio });
+                currentUser.bio = newBio;
+                bioText.textContent = newBio || 'This is your bio. Click edit to change it.';
+            } catch (error) {
+                console.error("Failed to save bio:", error);
+                alert("Could not save bio.");
+            } finally {
+                bioText.classList.remove('hidden');
+                editBioBtn.classList.remove('hidden');
+                bioInput.classList.add('hidden');
+                saveBioBtn.classList.add('hidden');
+            }
+        });
+        
+        chatRoomHeaderClickable.addEventListener('click', () => {
+            if (!currentChatPartner) return;
+            
+            const initials = getInitials(currentChatPartner.username);
+            partnerProfilePic.src = currentChatPartner.profilePicUrl || getPlaceholderUrl(initials);
+            partnerProfileUsername.textContent = currentChatPartner.username;
+            partnerProfileBio.textContent = currentChatPartner.bio || 'No bio available.';
+            
+            showPage('partner-profile-page', true);
+        });
+
+        backFromPartnerProfileBtn.addEventListener('click', () => {
+            hidePage('partner-profile-page');
+        });
+
+
+        // =================================================================
+        // 13. THEME SWITCHER LOGIC
+        // =================================================================
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                themeToggleSlider.classList.add('dark:translate-x-6');
+            } else {
+                document.documentElement.classList.remove('dark');
+                themeToggleSlider.classList.remove('dark:translate-x-6');
+            }
+            localStorage.setItem('theme', theme);
+            const activeNav = document.querySelector('.nav-btn.border-t-2');
+            if (activeNav) {
+                updateNavButtons(activeNav.dataset.page);
+            }
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            applyTheme(isDarkMode ? 'light' : 'dark');
+        });
+
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        applyTheme(savedTheme);
+
+        // =================================================================
+        // 14. AI & GEMINI LOGIC
+        // =================================================================
+        async function callGeminiAPI(history) {
+            const apiKey = "AIzaSyAE9qqHiA_FrTzj-3pkTtS52tH1u53jAhQ"; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+            
+            if (apiKey === "AIzaSyAE9qqHiA_FrTzj-3pkTtS52tH1u53jAhQ") {
+                // This is a placeholder for potential warnings about exposed keys.
+            }
+
+            const payload = { 
+                contents: history,
+                systemInstruction: {
+                    parts: [{
+                        text: "You are a helpful assistant integrated into the Twinkle chat app. Your name is Gemini. Always provide responses in plain text without using any Markdown formatting (like **bold** or *italics*)."
+                    }]
+                }
+            };
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                 const errorData = await response.json();
+                 console.error("API Error:", errorData);
+                 throw new Error(`API request failed with status ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                return result.candidates[0].content.parts[0].text;
+            } else {
+                if(result.promptFeedback?.blockReason) {
+                     throw new Error(`Request blocked: ${result.promptFeedback.blockReason}`);
+                }
+                throw new Error("Invalid response structure from Gemini API.");
+            }
+        }
+
+        backFromGeminiBtn.addEventListener('click', () => {
+            hidePage('gemini-page');
+        });
+
+        function renderGeminiMessage(text, sender) {
+            const messageWrapper = document.createElement('div');
+            const isGemini = sender === 'gemini';
+            
+            messageWrapper.className = `flex flex-col ${isGemini ? 'items-start' : 'items-end'}`;
+            
+            const messageBubble = document.createElement('div');
+            messageBubble.className = `max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${isGemini ? 'bg-white dark:bg-gray-700 dark:text-white rounded-bl-none shadow-sm' : 'bg-primary text-white rounded-br-none'}`;
+            messageBubble.textContent = text;
+            
+            if (isGemini) {
+                const label = document.createElement('span');
+                label.className = 'text-xs text-gray-500 dark:text-gray-400 ml-2 mb-1';
+                label.textContent = '✨ Gemini';
+                messageWrapper.appendChild(label);
+            }
+            
+            messageWrapper.appendChild(messageBubble);
+            geminiMessagesContainer.appendChild(messageWrapper);
+            geminiMessagesContainer.scrollTop = geminiMessagesContainer.scrollHeight;
+        }
+
+        geminiMessageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userText = geminiMessageInput.value.trim();
+            if (!userText) return;
+
+            geminiMessageInput.value = '';
+            renderGeminiMessage(userText, 'user');
+            geminiChatHistory.push({ role: 'user', parts: [{ text: userText }] });
+
+            geminiTypingIndicator.innerHTML = `
+                <div class="flex items-center space-x-2 animate-fade-in">
+                    <div class="px-4 py-3 rounded-2xl bg-gray-200 dark:bg-gray-700">
+                        <div class="flex items-center space-x-1">
+                            <div class="w-2 h-2 bg-gray-500 rounded-full animate-blink" style="animation-delay: 0s;"></div>
+                            <div class="w-2 h-2 bg-gray-500 rounded-full animate-blink" style="animation-delay: 0.2s;"></div>
+                            <div class="w-2 h-2 bg-gray-500 rounded-full animate-blink" style="animation-delay: 0.4s;"></div>
+                        </div>
+                    </div>
+                </div>`;
+
+            try {
+                const geminiResponse = await callGeminiAPI(geminiChatHistory);
+                renderGeminiMessage(geminiResponse, 'gemini');
+                geminiChatHistory.push({ role: 'model', parts: [{ text: geminiResponse }] });
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                renderGeminiMessage("Sorry, I couldn't get a response. Please check the console for errors.", 'gemini');
+            } finally {
+                geminiTypingIndicator.innerHTML = '';
+            }
+        });
+
+        
+        // =================================================================
+        // 15. DELETE CHAT
+        // =================================================================
+        chatSettingsBtn.addEventListener('click', () => {
+            chatSettingsMenu.classList.toggle('hidden');
+        });
+
+        deleteChatBtn.addEventListener('click', () => {
+            chatSettingsMenu.classList.add('hidden');
+            deleteChatModal.classList.remove('hidden');
+        });
+        
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteChatModal.classList.add('hidden');
+        });
+
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (!currentChatPartner) return;
+            const chatId = [currentUser.uid, currentChatPartner.uid].sort().join('_');
+            
+            try {
+                const messagesRef = collection(db, `chats/${chatId}/messages`);
+                const messagesSnapshot = await getDocs(messagesRef);
+                const batch = writeBatch(db);
+                messagesSnapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+
+                await deleteDoc(doc(db, 'chats', chatId));
+                
+                hidePage('chat-room-page');
+                showPage('chats-page');
+
+            } catch (error) {
+                console.error("Error deleting chat:", error);
+                alert("Could not delete chat. Please try again.");
+            } finally {
+                deleteChatModal.classList.add('hidden');
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!chatSettingsBtn.contains(e.target) && !chatSettingsMenu.contains(e.target)) {
+                chatSettingsMenu.classList.add('hidden');
+            }
+        });
+
+
+        // =================================================================
+        // 16. FLAPPY BIRD GAME LOGIC
+        // =================================================================
+        const fbCanvas = document.getElementById('flappy-bird-canvas');
+        const fbCtx = fbCanvas.getContext('2d');
+        const fbStartScreen = document.getElementById('flappy-bird-start-screen');
+        const fbGameOverScreen = document.getElementById('flappy-bird-game-over-screen');
+        const fbStartButton = document.getElementById('flappy-bird-start-button');
+        const fbRestartButton = document.getElementById('flappy-bird-restart-button');
+        const fbFinalScoreEl = document.getElementById('flappy-bird-final-score');
+        const fbHighScoreEl = document.getElementById('flappy-bird-high-score');
+        const fbGameOverlay = document.getElementById('flappy-bird-overlay');
+        let fbSoundsReady = false;
+        let flapSound, scoreSound, hitSound;
+
+        function setupFbSounds() {
+            if (fbSoundsReady) return;
+            flapSound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.1 } }).toDestination();
+            scoreSound = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.1 } }).toDestination();
+            hitSound = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.2 } }).toDestination();
+            fbSoundsReady = true;
+        }
+
+        let bird, pipes, trees, fbScore, fbHighScore, fbGameSpeed, fbGameState, fbAnimationId = null;
+        const gravity = 0.3;
+        const flapStrength = -6;
+        let basePipeGap = 200;
+        let basePipeSpeed = 2;
+
+        const birdProps = {
+            x: 50, y: 150, width: 40, height: 30, velocity: 0, rotation: 0,
+            draw() {
+                fbCtx.save();
+                fbCtx.translate(this.x + this.width / 2, this.y + this.height / 2);
+                this.rotation = Math.min(Math.max(-20, this.velocity * 5), 90) * (Math.PI / 180);
+                fbCtx.rotate(this.rotation);
+                fbCtx.fillStyle = '#FFD700'; fbCtx.beginPath(); fbCtx.arc(0, 0, this.width / 2, 0, Math.PI * 2); fbCtx.fill();
+                fbCtx.fillStyle = '#FFA500'; fbCtx.beginPath(); fbCtx.ellipse(0, this.height / 4, this.width / 3, this.height / 5, 0, 0, Math.PI * 2); fbCtx.fill();
+                fbCtx.fillStyle = 'white'; fbCtx.beginPath(); fbCtx.arc(this.width / 4, -this.height / 8, this.width / 10, 0, Math.PI * 2); fbCtx.fill();
+                fbCtx.fillStyle = 'black'; fbCtx.beginPath(); fbCtx.arc(this.width / 4 + 1, -this.height / 8, this.width / 20, 0, Math.PI * 2); fbCtx.fill();
+                fbCtx.fillStyle = '#FF4500'; fbCtx.beginPath(); fbCtx.moveTo(this.width / 2 - 2, 0); fbCtx.lineTo(this.width / 2 + 10, -5); fbCtx.lineTo(this.width / 2 + 10, 5); fbCtx.closePath(); fbCtx.fill();
+                fbCtx.restore();
+            },
+            update() { this.velocity += gravity; this.y += this.velocity; this.y = Math.max(0, this.y); },
+            flap() { this.velocity = flapStrength; if (fbSoundsReady) flapSound.triggerAttackRelease('C5', '8n'); }
+        };
+
+        class Pipe {
+            constructor(isTop, height, x) { this.x = x; this.y = isTop ? 0 : fbCanvas.height - height; this.width = 60; this.height = height; this.isTop = isTop; this.passed = false; }
+            draw() { fbCtx.fillStyle = '#228B22'; fbCtx.fillRect(this.x, this.y, this.width, this.height); fbCtx.fillRect(this.x - 5, this.isTop ? this.height - 20 : this.y, this.width + 10, 20); }
+            update() { this.x -= fbGameSpeed; }
+        }
+
+        class Tree {
+            constructor(x, y, size, speed) { this.x = x; this.y = y; this.size = size; this.speed = speed; }
+            draw() { fbCtx.fillStyle = `rgba(0, 100, 0, ${this.speed / 2})`; fbCtx.fillRect(this.x - this.size / 10, this.y - this.size, this.size / 5, this.size); fbCtx.beginPath(); fbCtx.moveTo(this.x, this.y - this.size * 2); fbCtx.lineTo(this.x - this.size / 2, this.y - this.size); fbCtx.lineTo(this.x + this.size / 2, this.y - this.size); fbCtx.closePath(); fbCtx.fill(); }
+            update() { this.x -= this.speed; if (this.x + this.size < 0) { this.x = fbCanvas.width + this.size; } }
+        }
+
+        function initFlappyBird() {
+            if (fbAnimationId) {
+                cancelAnimationFrame(fbAnimationId);
+                fbAnimationId = null;
+            }
+            const container = fbCanvas.parentElement;
+            const size = Math.min(container.clientWidth, window.innerHeight * 0.8);
+            fbCanvas.width = size; fbCanvas.height = size * 1.5;
+            bird = { ...birdProps, y: fbCanvas.height / 2 };
+            pipes = []; trees = []; fbScore = 0;
+            fbHighScore = localStorage.getItem('flappyBirdHighScore') || 0;
+            fbHighScoreEl.textContent = fbHighScore;
+            fbGameSpeed = basePipeSpeed; fbGameState = 'start';
+            for (let i = 0; i < 20; i++) { const speed = Math.random() * 1.5 + 0.5; trees.push(new Tree(Math.random() * fbCanvas.width, fbCanvas.height, Math.random() * 50 + 20, speed)); }
+            trees.sort((a, b) => a.speed - b.speed);
+            spawnPipe(); gameLoopFlappyBird();
+        }
+
+        function gameLoopFlappyBird() { 
+            if (fbGameState === 'gameOver') {
+                if (fbAnimationId) cancelAnimationFrame(fbAnimationId);
+                fbAnimationId = null;
+                return;
+            }
+            updateFlappyBird(); 
+            drawFlappyBird(); 
+            fbAnimationId = requestAnimationFrame(gameLoopFlappyBird); 
+        }
+        function updateFlappyBird() {
+            if (fbGameState !== 'playing') return;
+            bird.update(); if (bird.y + bird.height > fbCanvas.height) endFlappyBird();
+            pipes.forEach(pipe => pipe.update());
+            if (pipes.length > 0 && pipes[0].x < -pipes[0].width) pipes.shift();
+            if (pipes.length === 0 || pipes[pipes.length - 1].x < fbCanvas.width - 250) spawnPipe();
+            checkCollisions(); updateScore(); trees.forEach(tree => tree.update());
+        }
+        function drawFlappyBird() {
+            fbCtx.clearRect(0, 0, fbCanvas.width, fbCanvas.height);
+            trees.forEach(tree => tree.draw()); pipes.forEach(pipe => pipe.draw()); bird.draw();
+            if (fbGameState === 'playing') {
+                fbCtx.fillStyle = 'white'; fbCtx.strokeStyle = 'black'; fbCtx.lineWidth = 2;
+                fbCtx.font = '40px "Press Start 2P"'; fbCtx.textAlign = 'center';
+                const scoreText = fbScore.toString();
+                fbCtx.fillText(scoreText, fbCanvas.width / 2, 50); fbCtx.strokeText(scoreText, fbCanvas.width / 2, 50);
+            }
+        }
+        function spawnPipe() {
+            const pipeGap = basePipeGap - (fbScore * 2); const minGap = 120;
+            const effectiveGap = Math.max(pipeGap, minGap); const minHeight = 50;
+            const maxHeight = fbCanvas.height - effectiveGap - minHeight;
+            const topPipeHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+            const bottomPipeHeight = fbCanvas.height - topPipeHeight - effectiveGap;
+            pipes.push(new Pipe(true, topPipeHeight, fbCanvas.width)); pipes.push(new Pipe(false, bottomPipeHeight, fbCanvas.width));
+        }
+        function checkCollisions() {
+            for (const pipe of pipes) {
+                if (bird.x < pipe.x + pipe.width && bird.x + bird.width > pipe.x && bird.y < pipe.y + pipe.height && bird.y + bird.height > pipe.y) {
+                    endFlappyBird(); return;
+                }
+            }
+        }
+        function updateScore() {
+            pipes.forEach(pipe => {
+                if (!pipe.passed && pipe.x + pipe.width < bird.x) {
+                    if (!pipe.isTop) {
+                        fbScore++; if (fbSoundsReady) scoreSound.triggerAttackRelease('E5', '8n');
+                        pipe.passed = true;
+                        const topPipe = pipes.find(p => p.isTop && Math.abs(p.x - pipe.x) < 5);
+                        if(topPipe) topPipe.passed = true;
+                        fbGameSpeed = basePipeSpeed + Math.floor(fbScore / 5) * 0.2;
+                    }
+                }
+            });
+        }
+        function startFlappyBird() { fbGameState = 'playing'; fbGameOverlay.classList.add('hidden'); fbStartScreen.classList.add('hidden'); fbGameOverScreen.classList.add('hidden'); bird.flap(); }
+        function endFlappyBird() {
+            if (fbGameState === 'gameOver') return;
+            fbGameState = 'gameOver';
+            if (fbAnimationId) {
+                cancelAnimationFrame(fbAnimationId);
+                fbAnimationId = null;
+            }
+            if (fbSoundsReady) hitSound.triggerAttackRelease('C3', '4n');
+            if (fbScore > fbHighScore) { fbHighScore = fbScore; localStorage.setItem('flappyBirdHighScore', fbHighScore); }
+            fbFinalScoreEl.textContent = fbScore; fbHighScoreEl.textContent = fbHighScore;
+            fbGameOverlay.classList.remove('hidden'); fbGameOverScreen.classList.remove('hidden');
+        }
+        function handleFbInput() { if (Tone.context.state !== 'running') Tone.context.resume(); if (fbGameState === 'playing') bird.flap(); }
+        
+        fbStartButton.addEventListener('click', () => { if (!fbSoundsReady) setupFbSounds(); if (Tone.context.state !== 'running') Tone.context.resume(); initFlappyBird(); startFlappyBird(); });
+        fbRestartButton.addEventListener('click', () => { initFlappyBird(); startFlappyBird(); });
+        
+        const flappyBirdPage = document.getElementById('flappy-bird-page');
+        flappyBirdPage.addEventListener('keydown', (e) => { if (e.code === 'Space') { if (fbGameState === 'playing') handleFbInput(); else if (fbGameState === 'start') fbStartButton.click(); } });
+        fbCanvas.addEventListener('mousedown', handleFbInput);
+        fbCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleFbInput(); });
+        
+        
+        document.getElementById('flappy-bird-card').addEventListener('click', () => { showPage('flappy-bird-page', true); initFlappyBird(); });
+        document.getElementById('back-from-flappy-bird-btn').addEventListener('click', () => { 
+            fbGameState = 'gameOver'; 
+            if (fbAnimationId) {
+                cancelAnimationFrame(fbAnimationId);
+                fbAnimationId = null;
+            }
+            hidePage('flappy-bird-page'); 
+            showPage('game-zone-page');
+        });
+
+
+        // =================================================================
+        // 17. FRUIT CATCHER GAME LOGIC
+        // =================================================================
+        const fcCanvas = document.getElementById('fruit-catcher-canvas');
+        const fcCtx = fcCanvas.getContext('2d');
+        const fcStartScreen = document.getElementById('fruit-catcher-start-screen');
+        const fcGameOverScreen = document.getElementById('fruit-catcher-game-over-screen');
+        const fcStartButton = document.getElementById('fruit-catcher-start-button');
+        const fcRestartButton = document.getElementById('fruit-catcher-restart-button');
+        const fcFinalScoreEl = document.getElementById('fruit-catcher-final-score');
+        const fcHighScoreEl = document.getElementById('fruit-catcher-high-score');
+        const fcGameOverlay = document.getElementById('fruit-catcher-overlay');
+
+        let fcSoundsReady = false;
+        let catchSound, dropSound;
+
+        function setupFcSounds() {
+            if (fcSoundsReady) return;
+            catchSound = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.1 } }).toDestination();
+            dropSound = new Tone.NoiseSynth({ noise: { type: 'brown' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination();
+            fcSoundsReady = true;
+        }
+
+        let basket, fruits, fcScore, fcHighScore, fcGameState, lives, fcAnimationId = null;
+        let fruitSpawnTimer = 0;
+        const fruitTypes = ['🍎', '🍌', '🍇', '🍓', '🍊'];
+
+        const basketProps = {
+            width: 100, height: 50, y: 0,
+            draw() {
+                fcCtx.font = `${this.width * 0.8}px serif`;
+                fcCtx.textAlign = 'center';
+                fcCtx.fillText('🧺', this.x, this.y + this.height * 0.8);
+            }
+        };
+
+        class FallingObject {
+            constructor() {
+                this.x = Math.random() * fcCanvas.width;
+                this.y = -30;
+                this.size = 30 + Math.random() * 10;
+                this.speed = 2 + Math.random() * 2 + (fcScore / 10);
+                this.isBomb = Math.random() < 0.15; // 15% chance of being a bomb
+                this.text = this.isBomb ? '💣' : fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
+            }
+            update() { this.y += this.speed; }
+            draw() {
+                fcCtx.font = `${this.size}px serif`;
+                fcCtx.textAlign = 'center';
+                fcCtx.fillText(this.text, this.x, this.y);
+            }
+        }
+
+        function initFruitCatcher() {
+            if (fcAnimationId) {
+                cancelAnimationFrame(fcAnimationId);
+                fcAnimationId = null;
+            }
+            const container = fcCanvas.parentElement;
+            const size = Math.min(container.clientWidth, window.innerHeight * 0.8);
+            fcCanvas.width = size;
+            fcCanvas.height = size * 1.5;
+            basket = { ...basketProps, x: fcCanvas.width / 2, y: fcCanvas.height - basketProps.height };
+            fruits = [];
+            fcScore = 0;
+            lives = 3;
+            fcHighScore = localStorage.getItem('fruitCatcherHighScore') || 0;
+            fcHighScoreEl.textContent = fcHighScore;
+            fcGameState = 'start';
+            gameLoopFruitCatcher();
+        }
+
+        function gameLoopFruitCatcher() {
+            if (fcGameState === 'gameOver') {
+                if (fcAnimationId) cancelAnimationFrame(fcAnimationId);
+                fcAnimationId = null;
+                return;
+            }
+            updateFruitCatcher();
+            drawFruitCatcher();
+            fcAnimationId = requestAnimationFrame(gameLoopFruitCatcher);
+        }
+
+        function updateFruitCatcher() {
+            if (fcGameState !== 'playing') return;
+            fruitSpawnTimer++;
+            if (fruitSpawnTimer > Math.max(20, 60 - fcScore)) {
+                fruits.push(new FallingObject());
+                fruitSpawnTimer = 0;
+            }
+
+            for (let i = fruits.length - 1; i >= 0; i--) {
+                const fruit = fruits[i];
+                fruit.update();
+
+                // Collision with basket
+                if (fruit.y > basket.y && fruit.y < basket.y + basket.height && fruit.x > basket.x - basket.width / 2 && fruit.x < basket.x + basket.width / 2) {
+                    if (fruit.isBomb) {
+                        endFruitCatcher();
+                    } else {
+                        fcScore++;
+                        if (fcSoundsReady) catchSound.triggerAttackRelease('G5', '8n');
+                    }
+                    fruits.splice(i, 1);
+                }
+                // Missed
+                else if (fruit.y > fcCanvas.height) {
+                    if (!fruit.isBomb) {
+                        lives--;
+                        if (fcSoundsReady) dropSound.triggerAttackRelease('8n');
+                        if (lives <= 0) endFruitCatcher();
+                    }
+                    fruits.splice(i, 1);
+                }
+            }
+        }
+
+        function drawFruitCatcher() {
+            fcCtx.clearRect(0, 0, fcCanvas.width, fcCanvas.height);
+            basket.draw();
+            fruits.forEach(f => f.draw());
+
+            if (fcGameState === 'playing') {
+                fcCtx.fillStyle = 'white';
+                fcCtx.strokeStyle = 'black';
+                fcCtx.lineWidth = 2;
+                fcCtx.font = '24px "Press Start 2P"';
+                fcCtx.textAlign = 'left';
+                fcCtx.fillText(`Score: ${fcScore}`, 10, 30);
+                fcCtx.strokeText(`Score: ${fcScore}`, 10, 30);
+                fcCtx.textAlign = 'right';
+                fcCtx.fillText(`Lives: ${'❤️'.repeat(lives)}`, fcCanvas.width - 10, 30);
+                fcCtx.strokeText(`Lives: ${'❤️'.repeat(lives)}`, fcCanvas.width - 10, 30);
+            }
+        }
+
+        function startFruitCatcher() {
+            fcGameState = 'playing';
+            fcGameOverlay.classList.add('hidden');
+            fcStartScreen.classList.add('hidden');
+            fcGameOverScreen.classList.add('hidden');
+        }
+
+        function endFruitCatcher() {
+            if (fcGameState === 'gameOver') return;
+            fcGameState = 'gameOver';
+            if (fcAnimationId) {
+                cancelAnimationFrame(fcAnimationId);
+                fcAnimationId = null;
+            }
+            if (fcSoundsReady) dropSound.triggerAttackRelease("2n");
+            if (fcScore > fcHighScore) {
+                fcHighScore = fcScore;
+                localStorage.setItem('fruitCatcherHighScore', fcHighScore);
+            }
+            fcFinalScoreEl.textContent = fcScore;
+            fcHighScoreEl.textContent = fcHighScore;
+            fcGameOverlay.classList.remove('hidden');
+            fcGameOverScreen.classList.remove('hidden');
+        }
+
+        function moveBasket(e) {
+            const rect = fcCanvas.getBoundingClientRect();
+            let x;
+            if (e.touches) {
+                x = e.touches[0].clientX - rect.left;
+            } else {
+                x = e.clientX - rect.left;
+            }
+            basket.x = Math.max(basket.width / 2, Math.min(fcCanvas.width - basket.width / 2, x));
+        }
+
+        fcCanvas.addEventListener('mousemove', moveBasket);
+        fcCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); moveBasket(e); });
+
+        fcStartButton.addEventListener('click', () => { if (!fcSoundsReady) setupFcSounds(); if (Tone.context.state !== 'running') Tone.context.resume(); initFruitCatcher(); startFruitCatcher(); });
+        fcRestartButton.addEventListener('click', () => { initFruitCatcher(); startFruitCatcher(); });
+
+        document.getElementById('fruit-catcher-card').addEventListener('click', () => { showPage('fruit-catcher-page', true); initFruitCatcher(); });
+        document.getElementById('back-from-fruit-catcher-btn').addEventListener('click', () => { 
+            fcGameState = 'gameOver'; 
+            if (fcAnimationId) {
+                cancelAnimationFrame(fcAnimationId);
+                fcAnimationId = null;
+            }
+            hidePage('fruit-catcher-page'); 
+            showPage('game-zone-page');
+        });
+
+        // =================================================================
+        // 18. RETRO RACER GAME LOGIC
+        // =================================================================
+        const retroRacerPage = document.getElementById('retro-racer-page');
+        const rrScoreElement = retroRacerPage.querySelector('.score');
+        const rrHighScoreElement = retroRacerPage.querySelector('.high-score');
+        const rrStartScreen = retroRacerPage.querySelector('.start-screen');
+        const rrGameOverScreen = retroRacerPage.querySelector('.game-over-screen');
+        const rrGameContainer = retroRacerPage.querySelector('.game-container');
+        const rrRestartBtn = retroRacerPage.querySelector('#restart-btn');
+        const rrMobileControls = retroRacerPage.querySelector('.mobile-controls');
+        const rrMoveLeftBtn = retroRacerPage.querySelector('#move-left');
+        const rrMoveRightBtn = retroRacerPage.querySelector('#move-right');
+
+        let rrPlayer = {
+            speed: 5, score: 0, start: false, level: 1,
+            nextLevelScore: 500, maxSpeed: 12,
+            highScore: localStorage.getItem('retroRacerHighScore') || 0,
+        };
+        let rrKeys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, w: false, s: false, a: false, d: false };
+        let rrAnimationId = null;
+
+        function rrSetup() {
+            rrHighScoreElement.textContent = `High Score: ${rrPlayer.highScore}`;
+            rrStartScreen.addEventListener('click', rrStartGame);
+            rrRestartBtn.addEventListener('click', rrStartGame);
+            document.addEventListener('keydown', e => { if(retroRacerPage.classList.contains('hidden')) return; if (rrKeys.hasOwnProperty(e.key)) { e.preventDefault(); rrKeys[e.key] = true; } });
+            document.addEventListener('keyup', e => { if(retroRacerPage.classList.contains('hidden')) return; if (rrKeys.hasOwnProperty(e.key)) { e.preventDefault(); rrKeys[e.key] = false; } });
+
+            function isTouchDevice() { return 'ontouchstart' in window || navigator.maxTouchPoints > 0; }
+            if (isTouchDevice()) {
+                rrMobileControls.style.display = 'flex';
+                rrMoveLeftBtn.addEventListener('touchstart', () => rrKeys.ArrowLeft = true);
+                rrMoveLeftBtn.addEventListener('touchend', () => rrKeys.ArrowLeft = false);
+                rrMoveRightBtn.addEventListener('touchstart', () => rrKeys.ArrowRight = true);
+                rrMoveRightBtn.addEventListener('touchend', () => rrKeys.ArrowRight = false);
+            }
+        }
+
+        function isRrCollide(a, b) {
+            const aRect = a.getBoundingClientRect();
+            const bRect = b.getBoundingClientRect();
+            return !((aRect.bottom < bRect.top) || (aRect.top > bRect.bottom) || (aRect.right < bRect.left) || (aRect.left > bRect.right));
+        }
+
+        function rrMoveLines() {
+            let lines = retroRacerPage.querySelectorAll('.line');
+            lines.forEach(item => {
+                item.y += rrPlayer.speed;
+                item.style.top = item.y + 'px';
+                if (item.y >= rrGameContainer.offsetHeight) {
+                    item.y = -item.offsetHeight;
+                }
+            });
+        }
+
+        function rrMoveEnemy(car) {
+            let enemies = retroRacerPage.querySelectorAll('.enemy');
+            enemies.forEach(item => {
+                if (isRrCollide(car, item)) {
+                    rrEndGame();
+                }
+                item.y += rrPlayer.speed;
+                item.style.top = item.y + 'px';
+                if (item.y >= rrGameContainer.offsetHeight) {
+                    item.y = -300;
+                    item.style.left = Math.floor(Math.random() * (rrGameContainer.offsetWidth - 70)) + 10 + 'px';
+                }
+            });
+        }
+
+        function rrCheckLevelUp() {
+            if (rrPlayer.score > rrPlayer.nextLevelScore) {
+                rrPlayer.level++;
+                rrPlayer.speed = Math.min(rrPlayer.speed + 0.75, rrPlayer.maxSpeed);
+                rrPlayer.nextLevelScore += 500;
+                const levelUpMsg = document.createElement('div');
+                levelUpMsg.className = 'level-up-popup';
+                levelUpMsg.innerHTML = `Level ${rrPlayer.level}!`;
+                rrGameContainer.appendChild(levelUpMsg);
+                setTimeout(() => { levelUpMsg.style.top = '20%'; }, 100);
+                setTimeout(() => {
+                    levelUpMsg.style.top = '-100px';
+                    setTimeout(() => levelUpMsg.remove(), 500);
+                }, 2000);
+            }
+        }
+
+        function rrGamePlay() {
+            if (rrPlayer.start) {
+                let car = retroRacerPage.querySelector('.car');
+                if (!car) { rrEndGame(); return; } // Stop if car is gone (e.g., back button pressed)
+
+                let road = rrGameContainer.getBoundingClientRect();
+                rrMoveLines(); rrMoveEnemy(car); rrCheckLevelUp();
+
+                const moveBounds = { top: 70, bottom: road.height - 150, left: 10, right: road.width - 60 };
+                if ((rrKeys.ArrowUp || rrKeys.w) && rrPlayer.y > moveBounds.top) { rrPlayer.y -= rrPlayer.speed; }
+                if ((rrKeys.ArrowDown || rrKeys.s) && rrPlayer.y < moveBounds.bottom) { rrPlayer.y += rrPlayer.speed; }
+                if ((rrKeys.ArrowLeft || rrKeys.a) && rrPlayer.x > moveBounds.left) { rrPlayer.x -= rrPlayer.speed; }
+                if ((rrKeys.ArrowRight || rrKeys.d) && rrPlayer.x < moveBounds.right) { rrPlayer.x += rrPlayer.speed; }
+
+                car.style.top = rrPlayer.y + 'px'; car.style.left = rrPlayer.x + 'px';
+                rrPlayer.score++;
+                if (rrPlayer.score > rrPlayer.highScore) {
+                    rrPlayer.highScore = rrPlayer.score;
+                    localStorage.setItem('retroRacerHighScore', rrPlayer.highScore);
+                }
+                rrScoreElement.textContent = `Score: ${rrPlayer.score}`;
+                rrHighScoreElement.textContent = `High Score: ${rrPlayer.highScore}`;
+                rrAnimationId = window.requestAnimationFrame(rrGamePlay);
+            }
+        }
+
+        function rrCreateVehicle(type) {
+            const vehicle = document.createElement('div');
+            vehicle.className = type;
+            if (type === 'car') {
+                vehicle.innerHTML = `<div class="roof"></div><div class="windshield"></div><div class="headlight left"></div><div class="headlight right"></div>`;
+                ['front-center', 'back-left', 'back-right'].forEach(pos => {
+                    const wheel = document.createElement('div');
+                    wheel.className = `wheel ${pos}`; vehicle.appendChild(wheel);
+                });
+            } else {
+                vehicle.innerHTML = `<div class="cabin"></div><div class="windshield"></div><div class="taillight left"></div><div class="taillight right"></div>`;
+                ['front-left', 'front-right', 'back-left', 'back-right'].forEach(pos => {
+                    const wheel = document.createElement('div');
+                    wheel.className = `wheel ${pos}`; vehicle.appendChild(wheel);
+                });
+            }
+            return vehicle;
+        }
+
+        function rrStartGame() {
+            rrStartScreen.classList.add('hide');
+            rrGameOverScreen.classList.add('hide');
+            
+            // Clear only game elements, not the persistent UI
+            rrGameContainer.querySelectorAll('.line, .car, .enemy, .level-up-popup').forEach(el => el.remove());
+
+            rrPlayer.start = true; rrPlayer.score = 0; rrPlayer.speed = 5;
+            rrPlayer.level = 1; rrPlayer.nextLevelScore = 500;
+            if (rrAnimationId) cancelAnimationFrame(rrAnimationId);
+            
+            for (let x = 0; x < 5; x++) {
+                let roadLine = document.createElement('div');
+                roadLine.className = 'line';
+                roadLine.y = (x * 150);
+                roadLine.style.top = roadLine.y + 'px';
+                rrGameContainer.appendChild(roadLine);
+            }
+
+            let car = rrCreateVehicle('car');
+            rrGameContainer.appendChild(car);
+            rrPlayer.x = car.offsetLeft; rrPlayer.y = car.offsetTop;
+
+            const enemyTypes = ['enemy-sedan', 'enemy-suv'];
+            const enemyColors = ['#c0392b', '#2980b9', '#8e44ad', '#27ae60', '#f39c12', '#7f8c8d'];
+            for (let x = 0; x < 4; x++) {
+                let randomType = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+                let enemyCar = rrCreateVehicle('enemy ' + randomType);
+                enemyCar.y = ((x + 1) * 350) * -1;
+                enemyCar.style.top = enemyCar.y + 'px';
+                enemyCar.style.left = Math.floor(Math.random() * (rrGameContainer.offsetWidth - 70)) + 10 + 'px';
+                enemyCar.style.backgroundColor = enemyColors[Math.floor(Math.random() * enemyColors.length)];
+                rrGameContainer.appendChild(enemyCar);
+            }
+            rrGamePlay();
+        }
+
+        function rrEndGame() {
+            rrPlayer.start = false;
+            if (rrAnimationId) cancelAnimationFrame(rrAnimationId);
+            rrGameOverScreen.classList.remove('hide');
+            rrGameOverScreen.querySelector('.final-score').textContent = `Your Score: ${rrPlayer.score}`;
+        }
+
+        // Initialize the game logic once
+        rrSetup();
+
+        document.getElementById('retro-racer-card').addEventListener('click', () => {
+             showPage('retro-racer-page', true);
+             rrGameOverScreen.classList.add('hide');
+             rrStartScreen.classList.remove('hide');
+        });
+
+        document.getElementById('back-from-retro-racer-btn').addEventListener('click', () => {
+            rrPlayer.start = false;
+            if (rrAnimationId) cancelAnimationFrame(rrAnimationId);
+            hidePage('retro-racer-page');
+            showPage('game-zone-page');
+        });
+
+        // =================================================================
+        // 19. TIC-TAC-TOE GAME LOGIC
+        // =================================================================
+        const tttPage = document.getElementById('tictactoe-page');
+        const tttLobby = document.getElementById('tictactoe-lobby');
+        const tttGameArea = document.getElementById('tictactoe-game-area');
+        const tttBoard = tttGameArea.querySelector('.ttt-board');
+        const tttStatusDiv = document.getElementById('ttt-status');
+        const tttShareLinkDiv = document.getElementById('ttt-share-link');
+
+        // Lobby buttons
+        const tttPlayBotBtn = document.getElementById('ttt-play-bot-btn');
+        const tttCreateRoomBtn = document.getElementById('ttt-create-room-btn');
+        const tttJoinRoomBtn = document.getElementById('ttt-join-room-btn');
+        const tttRoomIdInput = document.getElementById('ttt-room-id-input');
+
+        // Game buttons
+        const tttRestartBtn = document.getElementById('ttt-restart-btn');
+        const tttBackToLobbyBtn = document.getElementById('ttt-back-to-lobby-btn');
+
+        // State
+        let tttState = {
+            mySymbol: null,
+            roomId: null,
+            roomRef: null,
+            unsubscribe: null,
+            isBotGame: false,
+            gameState: Array(9).fill(""),
+            currentPlayer: 'X',
+            gameActive: true
+        };
+
+        function tttInit() {
+            tttBoard.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'ttt-cell';
+                cell.dataset.index = i;
+                cell.addEventListener('click', () => tttHandleCellClick(i));
+                tttBoard.appendChild(cell);
+            }
+        }
+        
+        function tttShowLobby() {
+            tttLobby.classList.remove('hidden');
+            tttGameArea.classList.add('hidden');
+            if (tttState.unsubscribe) {
+                tttState.unsubscribe();
+                tttState.unsubscribe = null;
+            }
+            tttRoomIdInput.value = '';
+        }
+        
+        function tttShowGameArea() {
+            tttLobby.classList.add('hidden');
+            tttGameArea.classList.remove('hidden');
+        }
+
+        // --- Multiplayer Logic ---
+        function tttGenerateRoomId() {
+            return Math.random().toString(36).substring(2, 8);
+        }
+
+        async function tttJoinGame(selectedRoomId) {
+            if (!currentUser) {
+                alert("You must be logged in to play multiplayer!");
+                return;
+            }
+            tttState.isBotGame = false;
+            tttState.roomId = selectedRoomId;
+            tttState.roomRef = doc(db, "tictactoe", tttState.roomId);
+            
+            try {
+                const docSnap = await getDoc(tttState.roomRef);
+                if (!docSnap.exists()) {
+                    // New Game
+                    await setDoc(tttState.roomRef, {
+                        gameState: Array(9).fill(""),
+                        currentPlayer: "X",
+                        gameActive: true,
+                        players: { "X": currentUser.uid }, // Store UID with symbol
+                        winner: null
+                    });
+                    console.log("Room created:", tttState.roomId);
+                    tttState.mySymbol = "X";
+                } else {
+                    // Join existing game
+                    const data = docSnap.data();
+                    const players = data.players || {};
+                    if (Object.keys(players).length < 2 && !Object.values(players).includes(currentUser.uid)) {
+                        await updateDoc(tttState.roomRef, { "players.O": currentUser.uid });
+                        tttState.mySymbol = "O";
+                    } else if (Object.values(players).includes(currentUser.uid)) {
+                        // Player is rejoining
+                        tttState.mySymbol = Object.keys(players).find(key => players[key] === currentUser.uid);
+                    }
+                    else {
+                        alert("❌ This room is full!");
+                        return;
+                    }
+                }
+
+                tttShowGameArea();
+                
+                const shareText = `Room ID: <span class="font-bold text-yellow-300">${tttState.roomId}</span>`;
+                tttShareLinkDiv.innerHTML = `${shareText} <button id="ttt-copy-id-btn" class="ml-2 text-xs bg-gray-600 px-2 py-1 rounded">Copy</button>`;
+                document.getElementById('ttt-copy-id-btn').addEventListener('click', () => {
+                     navigator.clipboard.writeText(tttState.roomId);
+                     tttShareLinkDiv.innerHTML = `${shareText} <span class="text-green-400">Copied!</span>`;
+                });
+
+
+                tttState.unsubscribe = onSnapshot(tttState.roomRef, (doc) => {
+                    if(doc.exists()){
+                        tttRender(doc.data());
+                    } else {
+                        // Document was deleted, likely by the other player
+                        alert("The game room was closed.");
+                        tttShowLobby();
+                    }
+                });
+
+            } catch(error) {
+                console.error("Error joining game:", error);
+                alert("Could not join the game. Please check the Room ID and your connection.");
+            }
+        }
+
+        async function tttMakeMove(index, data) {
+            if (!data.gameActive || data.currentPlayer !== tttState.mySymbol || data.gameState[index] !== "") return;
+            
+            const newGameState = [...data.gameState];
+            newGameState[index] = tttState.mySymbol;
+            const winner = tttCheckWinner(newGameState);
+            
+            await updateDoc(tttState.roomRef, {
+                gameState: newGameState,
+                currentPlayer: winner ? data.currentPlayer : (tttState.mySymbol === "X" ? "O" : "X"),
+                gameActive: !winner,
+                winner: winner || null
+            });
+        }
+
+        async function tttRestartMultiplayerGame() {
+            if (!tttState.roomRef) return;
+             await updateDoc(tttState.roomRef, {
+                gameState: Array(9).fill(""),
+                currentPlayer: "X",
+                gameActive: true,
+                winner: null
+            });
+        }
+
+        // --- Bot Game Logic ---
+        function tttStartBotGame() {
+            tttState.isBotGame = true;
+            tttState.mySymbol = 'X'; // Player is always X vs bot
+            tttState.gameState = Array(9).fill("");
+            tttState.currentPlayer = 'X';
+            tttState.gameActive = true;
+            tttShowGameArea();
+            tttShareLinkDiv.innerHTML = 'Playing against the Bot';
+            tttRender();
+        }
+
+        function tttMakeBotMove() {
+            const emptyCells = tttState.gameState.map((val, idx) => val === "" ? idx : null).filter(val => val !== null);
+            if (emptyCells.length === 0) return;
+
+            const randomIndex = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            
+            setTimeout(() => {
+                tttState.gameState[randomIndex] = 'O';
+                const winner = tttCheckWinner(tttState.gameState);
+                
+                if (winner) {
+                    tttState.gameActive = false;
+                } else {
+                    tttState.currentPlayer = 'X';
+                }
+                tttRender();
+            }, 600); // Bot "thinks" for a bit
+        }
+
+        // --- Common Logic ---
+        function tttHandleCellClick(index) {
+             if (tttState.isBotGame) {
+                if (!tttState.gameActive || tttState.currentPlayer !== 'X' || tttState.gameState[index] !== "") return;
+                
+                tttState.gameState[index] = 'X';
+                const winner = tttCheckWinner(tttState.gameState);
+
+                if (winner) {
+                    tttState.gameActive = false;
+                } else {
+                    tttState.currentPlayer = 'O';
+                    tttRender(); // Render player's move immediately
+                    tttMakeBotMove();
+                }
+                 tttRender();
+            } else if (tttState.roomRef) {
+                getDoc(tttState.roomRef).then(doc => tttMakeMove(index, doc.data()));
+            }
+        }
+
+        function tttCheckWinner(board) {
+            const wins = [ [0,1,2],[3,4,5],[6,7,8], [0,3,6],[1,4,7],[2,5,8], [0,4,8],[2,4,6] ];
+            for (let [a,b,c] of wins) {
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
+            }
+            if (board.every(cell => cell !== "")) return 'Draw';
+            return null;
+        }
+
+        function tttRender(data = tttState) {
+            const board = data.gameState;
+            const cells = tttBoard.querySelectorAll('.ttt-cell');
+            cells.forEach((cell, idx) => {
+                cell.textContent = board[idx];
+                cell.classList.toggle('x', board[idx] === 'X');
+                cell.classList.toggle('o', board[idx] === 'O');
+            });
+            
+            const winner = data.winner || tttCheckWinner(board); // Use winner from data if available
+            if (winner) {
+                tttStatusDiv.textContent = winner === 'Draw' ? "😮 It's a draw!" : `🎉 Player ${winner} wins!`;
+            } else {
+                const turnText = tttState.isBotGame 
+                    ? (data.currentPlayer === 'X' ? 'Your turn (X)' : 'Bot is thinking...')
+                    : `Turn: ${data.currentPlayer} (${tttState.mySymbol === data.currentPlayer ? "Your turn" : "Waiting..."})`;
+                tttStatusDiv.textContent = turnText;
+            }
+        }
+        
+        // --- Event Listeners ---
+        document.getElementById('tictactoe-card').addEventListener('click', () => {
+             showPage('tictactoe-page', true);
+             tttShowLobby();
+        });
+        document.getElementById('back-from-tictactoe-btn').addEventListener('click', () => {
+            if (tttState.unsubscribe) tttState.unsubscribe();
+            hidePage('tictactoe-page');
+            showPage('game-zone-page');
+        });
+
+        tttPlayBotBtn.addEventListener('click', tttStartBotGame);
+        tttCreateRoomBtn.addEventListener('click', () => {
+            const newRoomId = tttGenerateRoomId();
+            tttJoinGame(newRoomId);
+        });
+        tttJoinRoomBtn.addEventListener('click', () => {
+            const selectedRoomId = tttRoomIdInput.value.trim();
+            if (!selectedRoomId) return alert("Please enter a Room ID!");
+            tttJoinGame(selectedRoomId);
+        });
+        
+        tttRestartBtn.addEventListener('click', () => {
+            if(tttState.isBotGame) tttStartBotGame();
+            else tttRestartMultiplayerGame();
+        });
+        tttBackToLobbyBtn.addEventListener('click', tttShowLobby);
+        
+        // Initial setup
+        tttInit();
+        
+    </script>
+</body>
+</html>
